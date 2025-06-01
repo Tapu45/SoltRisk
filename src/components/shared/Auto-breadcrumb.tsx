@@ -310,7 +310,12 @@ export default function AutoBreadcrumbs({
               }
 
               const isLast = idx === displayBreadcrumbs.length - 1;
-              const styles = generateDynamicStyles(crumb.colorIntensity, crumb.depth, crumb.isAction, isLast);
+              const styles = generateDynamicStyles(
+                crumb.colorIntensity,
+                crumb.depth,
+                !!crumb.isAction,
+                !!isLast
+              );
               
               return (
                 <motion.div
