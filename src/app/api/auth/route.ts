@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '@/generated/prisma'
+import { prisma } from '../../../lib/prisma'
 import * as bcrypt from 'bcrypt'
 import { z } from 'zod'
 import { cookies } from 'next/headers'
 import { sign } from 'jsonwebtoken'
 import { sendResetPasswordEmail } from '@/service/email'
 
-const prisma = new PrismaClient()
+
 
 // Login request schema validation
 const loginSchema = z.object({

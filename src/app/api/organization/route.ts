@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { PrismaClient } from '../../../generated/prisma'
+import { prisma } from '../../../lib/prisma'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { verifyAuth } from '../../../lib/jwt'
 import { uploadImage } from '@/service/cloudinary'
 
-const prisma = new PrismaClient()
+
 
 // Schema for creating an organization
 const createOrganizationSchema = z.object({
