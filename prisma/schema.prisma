@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id             String         @id
+  userId         String         @unique
+  createdAt      DateTime       @default(now())
+  User           User           @relation(fields: [userId], references: [id])
+  Organizations  Organization[] // Added relation to Organization
+}
+
+model Branch {
+  id           String     @id
+  name         String
+  clientId     String
+  createdAt    DateTime   @default(now())
+  Client       Client     @relation(fields: [clientId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+}
+
+model Client {
+  id        String   @id
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  Branch    Branch[]
+  User      User     @relation(fields: [userId], references: [id])
+}
+
+model Evidence {
+  id          String         @id
+  description String
+  vendorId    String
+  status      EvidenceStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+  Vendor      Vendor         @relation(fields: [vendorId], references: [id])
+}
+
+model Staff {
+  id        String   @id
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Admin     Admin?
+  Client    Client?
+  Staff     Staff?
+  Vendor    Vendor?
+}
+
+model Vendor {
+  id        String     @id
+  userId    String     @unique
+  createdAt DateTime   @default(now())
+  Evidence  Evidence[]
+  User      User       @relation(fields: [userId], references: [id])
+}
+
+// New Organization model
+model Organization {
+  id                     String    @id @default(uuid())
+  name                   String
+  managementName         String
+  designation            String
+  address                String
+  managementRepresentative String
+  email                  String    @unique
+  mobile                 String
+  website                String?
+  consultantEnquiry      Boolean   @default(false)
+  logo                   String?   // Stores the URL/path to the logo image
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  createdBy              String    // Reference to the Admin who created it
+  admin                  Admin     @relation(fields: [createdBy], references: [id])
+  branches               Branch[]
+}
+
+enum EvidenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum Role {
+  ADMIN
+  CLIENT
+  VENDOR
+  STAFF
+}
