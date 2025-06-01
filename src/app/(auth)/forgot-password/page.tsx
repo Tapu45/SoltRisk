@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -10,10 +9,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { API_ROUTES } from "@/lib/api";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react"
 
 // Step 1: Email submission schema
 const emailSchema = z.object({
@@ -188,15 +186,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  // Input mask for verification code
-  const handleCodeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // Allow only numbers
-    if (value && !/^[0-9]+$/.test(value)) {
-      return;
-    }
-    verificationForm.setValue("code", value);
-  };
+  
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row">
