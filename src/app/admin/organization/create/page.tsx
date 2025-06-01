@@ -43,6 +43,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { API_ROUTES } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -380,7 +381,7 @@ export default function CreateOrganizationPage() {
                         </div>
                       </motion.div>
 
-                      {/* Compact Preview Area */}
+                                           {/* Compact Preview Area */}
                       <AnimatePresence mode="wait">
                         {logoPreview ? (
                           <motion.div
@@ -390,19 +391,19 @@ export default function CreateOrganizationPage() {
                             transition={{ type: "spring", stiffness: 300 }}
                             className="relative"
                           >
-                            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-lg">
+                            <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-lg max-w-[200px]">
                               {/* Header */}
-                              <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-md flex items-center justify-center">
-                                    <FileCheck className="h-3 w-3 text-white" />
+                                  <div className="w-4 h-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-sm flex items-center justify-center">
+                                    <FileCheck className="h-2 w-2 text-white" />
                                   </div>
-                                  <span className="font-medium text-gray-800 text-sm">Logo Preview</span>
+                                  <span className="font-medium text-gray-800 text-xs">Logo Preview</span>
                                 </div>
                                 <motion.button
                                   type="button"
                                   onClick={removeLogo}
-                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all duration-200"
+                                  className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all duration-200"
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.9 }}
                                 >
@@ -410,13 +411,13 @@ export default function CreateOrganizationPage() {
                                 </motion.button>
                               </div>
                               
-                              {/* Preview */}
+                              {/* Preview - Much smaller */}
                               <div className="relative group">
-                                <div className="aspect-square bg-gradient-to-br from-gray-50 to-white rounded-lg overflow-hidden border border-dashed border-gray-200 group-hover:border-teal-300 transition-colors duration-300">
+                                <div className="w-24 h-24 bg-gradient-to-br from-gray-50 to-white rounded-lg overflow-hidden border border-dashed border-gray-200 group-hover:border-teal-300 transition-colors duration-300">
                                   <img
                                     src={logoPreview}
                                     alt="Logo Preview"
-                                    className="w-full h-full object-contain p-3"
+                                    className="w-full h-full object-contain p-2"
                                   />
                                 </div>
                               </div>
@@ -425,10 +426,10 @@ export default function CreateOrganizationPage() {
                               <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="flex items-center gap-2 mt-3 p-2 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200"
+                                className="flex items-center gap-1 mt-2 p-1.5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-md border border-green-200"
                               >
-                                <CheckCircle className="h-3 w-3 text-green-600" />
-                                <span className="text-xs font-medium text-green-800">Logo uploaded successfully</span>
+                                <CheckCircle className="h-2.5 w-2.5 text-green-600" />
+                                <span className="text-xs font-medium text-green-800">Uploaded</span>
                               </motion.div>
                             </div>
                           </motion.div>
@@ -437,14 +438,14 @@ export default function CreateOrganizationPage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="flex items-center justify-center h-full min-h-[200px]"
+                            className="flex items-center justify-center h-full min-h-[120px]"
                           >
-                            <div className="text-center p-6 bg-gradient-to-br from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
-                              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                                <ImageIcon className="h-6 w-6 text-gray-400" />
+                            <div className="text-center p-4 bg-gradient-to-br from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200 max-w-[200px]">
+                              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <ImageIcon className="h-4 w-4 text-gray-400" />
                               </div>
-                              <p className="text-gray-500 font-medium text-sm">No logo selected</p>
-                              <p className="text-xs text-gray-400 mt-1">Upload an image to see preview</p>
+                              <p className="text-gray-500 font-medium text-xs">No logo selected</p>
+                              <p className="text-xs text-gray-400 mt-1">Upload to preview</p>
                             </div>
                           </motion.div>
                         )}
