@@ -43,7 +43,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { API_ROUTES } from "@/lib/api";
 import { cn } from "@/lib/utils";

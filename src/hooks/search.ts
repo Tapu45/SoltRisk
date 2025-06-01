@@ -6,8 +6,16 @@ import { useSearchParams } from "next/navigation";
 
 export function usePageSearch<T>(items: T[], searchableFields: (keyof T)[]) {
   const { searchTerm } = useSearch();
-  const searchParams = useSearchParams();
-  const queryParam = searchParams.get("q");
+  
+  // Wrap useSearchParams in a try-catch for SSR safety
+  let queryParam: string | null = null;
+  try {
+    const searchParams = useSearchParams();
+    queryParam = searchParams.get("q");
+  } catch (error) {
+    // Handle SSR case where searchParams might not be available
+    console.warn("useSearchParams not available during SSR");
+  }
   
   // Use the URL param or the context value, with URL param taking precedence
   const effectiveSearchTerm = queryParam || searchTerm;

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 interface SearchContextType {
@@ -13,7 +13,7 @@ interface SearchContextType {
 
 const SearchContext = createContext<SearchContextType | undefined>(undefined);
 
-export function SearchProvider({ children }: { children: ReactNode }) {
+function SearchProviderContent({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -71,6 +71,14 @@ export function SearchProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </SearchContext.Provider>
+  );
+}
+
+export function SearchProvider({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<div>Loading search...</div>}>
+      <SearchProviderContent>{children}</SearchProviderContent>
+    </Suspense>
   );
 }
 
