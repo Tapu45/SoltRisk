@@ -1,16 +1,16 @@
-'use client'
+"use client";
 
-import React, { useEffect, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { motion, AnimatePresence } from 'framer-motion'
-import { API_ROUTES } from '@/lib/api'
-import { 
-  Plus, 
-  FileText, 
-  Users, 
-  Calendar, 
-  AlertCircle, 
-  CheckCircle, 
+import React, { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
+import { API_ROUTES } from "@/lib/api";
+import {
+  Plus,
+  FileText,
+  Users,
+  Calendar,
+  AlertCircle,
+  CheckCircle,
   Send,
   Eye,
   Search,
@@ -24,52 +24,53 @@ import {
   Mail,
   Target,
   ChevronDown,
-  Zap
-} from 'lucide-react'
-import { toast } from 'sonner'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+  Zap,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
 
 // Types
 interface Assignment {
-  name: string
-  email: string
-  department: string
-  role: string
-  dueDate: string
-  comments?: string
+  name: string;
+  email: string;
+  department: string;
+  role: string;
+  dueDate: string;
+  comments?: string;
 }
 
 interface Question {
-  id: string
-  questionText: string
-  questionType: string
-  questionOptions?: any
-  options?: any
-  isRequired: boolean
-  order: number
+  id: string;
+  questionText: string;
+  questionType: string;
+  questionOptions?: any;
+  options?: any;
+  isRequired: boolean;
+  order: number;
 }
 
 interface Section {
-  id: string
-  title: string
-  description: string
-  order: number
-  Questions: Question[]
+  id: string;
+  title: string;
+  description: string;
+  order: number;
+  Questions: Question[];
 }
 
 interface RifForm {
-  id: string
-  title: string
-  Sections: Section[]
+  id: string;
+  title: string;
+  Sections: Section[];
 }
 
 // Floating particles animation
 const FloatingParticles = () => {
-  const particles = Array.from({ length: 20 }, (_, i) => i)
-  
+  const particles = Array.from({ length: 20 }, (_, i) => i);
+
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {particles.map((particle) => (
@@ -77,12 +78,20 @@ const FloatingParticles = () => {
           key={particle}
           className="absolute w-1 h-1 bg-gradient-to-r from-teal-400 to-blue-500 rounded-full opacity-30"
           initial={{
-            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-            y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800),
+            x:
+              Math.random() *
+              (typeof window !== "undefined" ? window.innerWidth : 1200),
+            y:
+              Math.random() *
+              (typeof window !== "undefined" ? window.innerHeight : 800),
           }}
           animate={{
-            x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1200),
-            y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800),
+            x:
+              Math.random() *
+              (typeof window !== "undefined" ? window.innerWidth : 1200),
+            y:
+              Math.random() *
+              (typeof window !== "undefined" ? window.innerHeight : 800),
           }}
           transition={{
             duration: Math.random() * 15 + 10,
@@ -92,146 +101,160 @@ const FloatingParticles = () => {
         />
       ))}
     </div>
-  )
-}
+  );
+};
 
 // Get current user from localStorage
 const getCurrentUser = () => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     // Try to get from localStorage first
-    const userData = localStorage.getItem('user')
+    const userData = localStorage.getItem("user");
     if (userData) {
       try {
-        const user = JSON.parse(userData)
-        console.log('Current user loaded:', user)
-        return user
+        const user = JSON.parse(userData);
+        console.log("Current user loaded:", user);
+        return user;
       } catch (error) {
-        console.error('Error parsing user data from localStorage:', error)
+        console.error("Error parsing user data from localStorage:", error);
       }
     }
 
     // Try to get from sessionStorage as backup
-    const sessionUserData = sessionStorage.getItem('user')
+    const sessionUserData = sessionStorage.getItem("user");
     if (sessionUserData) {
       try {
-        return JSON.parse(sessionUserData)
+        return JSON.parse(sessionUserData);
       } catch (error) {
-        console.error('Error parsing user data from sessionStorage:', error)
+        console.error("Error parsing user data from sessionStorage:", error);
       }
     }
   }
-  return null
-}
+  return null;
+};
 
 // RIF Creation Form Component
-const RifCreationForm = ({ 
+const RifCreationForm = ({
   onSuccess,
-  currentUser 
-}: { 
-  onSuccess: () => void
-  currentUser: any
+  currentUser,
+}: {
+  onSuccess: () => void;
+  currentUser: any;
 }) => {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [section1Answers, setSection1Answers] = useState<any[]>([])
+  const [currentStep, setCurrentStep] = useState(1);
+  const [section1Answers, setSection1Answers] = useState<any[]>([]);
   const [assignment, setAssignment] = useState<Assignment>({
-    name: '',
-    email: '',
-    department: '',
-    role: '',
-    dueDate: '',
-    comments: ''
-  })
+    name: "",
+    email: "",
+    department: "",
+    role: "",
+    dueDate: "",
+    comments: "",
+  });
 
   // Fetch Section 1 form
   const { data: rifForm, isLoading } = useQuery({
-    queryKey: ['section1-form'],
+    queryKey: ["section1-form"],
     queryFn: async () => {
-      const response = await fetch(API_ROUTES.RIF.GET_SECTION1_FORM)
-      if (!response.ok) throw new Error('Failed to fetch form')
-      return response.json()
-    }
-  })
+      const response = await fetch(API_ROUTES.RIF.GET_SECTION1_FORM);
+      if (!response.ok) throw new Error("Failed to fetch form");
+      return response.json();
+    },
+  });
 
   // Submit RIF initiation
   const initiateRifMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await fetch(API_ROUTES.RIF.INITIATE_RIF, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.details || errorData.error || 'Failed to initiate RIF')
+        const errorData = await response.json();
+        throw new Error(
+          errorData.details || errorData.error || "Failed to initiate RIF"
+        );
       }
-      return response.json()
+      return response.json();
     },
     onSuccess: (data) => {
-      const message = data.vendorCreated 
+      const message = data.vendorCreated
         ? `RIF assigned successfully! New vendor created and email sent to ${assignment.email} by ${currentUser.name}.`
-        : `RIF assigned successfully! Email sent to ${assignment.email} by ${currentUser.name}.`
-      
-      toast.success(message)
-      onSuccess()
-      
+        : `RIF assigned successfully! Email sent to ${assignment.email} by ${currentUser.name}.`;
+
+      toast.success(message);
+      onSuccess();
+
       // Reset form
-      setCurrentStep(1)
-      setSection1Answers([])
+      setCurrentStep(1);
+      setSection1Answers([]);
       setAssignment({
-        name: '',
-        email: '',
-        department: '',
-        role: '',
-        dueDate: '',
-        comments: ''
-      })
+        name: "",
+        email: "",
+        department: "",
+        role: "",
+        dueDate: "",
+        comments: "",
+      });
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to initiate RIF')
-    }
-  })
+      toast.error(error.message || "Failed to initiate RIF");
+    },
+  });
 
   const handleAnswerChange = (questionId: string, value: any) => {
-    setSection1Answers(prev => {
-      const existing = prev.find(a => a.questionId === questionId)
+    setSection1Answers((prev) => {
+      const existing = prev.find((a) => a.questionId === questionId);
       if (existing) {
-        return prev.map(a => a.questionId === questionId ? { ...a, value } : a)
+        return prev.map((a) =>
+          a.questionId === questionId ? { ...a, value } : a
+        );
       } else {
-        return [...prev, { questionId, value }]
+        return [...prev, { questionId, value }];
       }
-    })
-  }
+    });
+  };
 
   const isSection1Complete = () => {
-    if (!rifForm?.Sections?.[0]?.Questions) return false
-    const requiredQuestions = rifForm.Sections[0].Questions.filter((q: Question) => q.isRequired)
-    const answeredRequired = section1Answers.filter(a => {
-      const question = requiredQuestions.find((q: Question) => q.id === a.questionId)
-      return question && a.value !== '' && a.value !== null && a.value !== undefined
-    })
-    return answeredRequired.length === requiredQuestions.length
-  }
+    if (!rifForm?.Sections?.[0]?.Questions) return false;
+    const requiredQuestions = rifForm.Sections[0].Questions.filter(
+      (q: Question) => q.isRequired
+    );
+    const answeredRequired = section1Answers.filter((a) => {
+      const question = requiredQuestions.find(
+        (q: Question) => q.id === a.questionId
+      );
+      return (
+        question && a.value !== "" && a.value !== null && a.value !== undefined
+      );
+    });
+    return answeredRequired.length === requiredQuestions.length;
+  };
 
   const isAssignmentComplete = () => {
-    return assignment.name && 
-           assignment.email && 
-           assignment.department && 
-           assignment.role && 
-           assignment.dueDate
-  }
+    return (
+      assignment.name &&
+      assignment.email &&
+      assignment.department &&
+      assignment.role &&
+      assignment.dueDate
+    );
+  };
 
   const handleSubmit = () => {
     if (!isSection1Complete() || !isAssignmentComplete()) {
-      toast.error('Please complete all required fields')
-      return
+      toast.error("Please complete all required fields");
+      return;
     }
 
     // Use real user data - remove hard-coded values
     initiateRifMutation.mutate({
-      section1Answers: section1Answers.map(answer => ({
+      section1Answers: section1Answers.map((answer) => ({
         questionId: answer.questionId,
         value: answer.value,
-        questionOptions: rifForm.Sections[0].Questions.find((q: Question) => q.id === answer.questionId)?.questionOptions
+        questionOptions: rifForm.Sections[0].Questions.find(
+          (q: Question) => q.id === answer.questionId
+        )?.questionOptions,
       })),
       assignment: {
         name: assignment.name.trim(),
@@ -239,17 +262,18 @@ const RifCreationForm = ({
         department: assignment.department,
         role: assignment.role,
         dueDate: assignment.dueDate,
-        comments: assignment.comments?.trim() || ''
+        comments: assignment.comments?.trim() || "",
       },
-      adminUserId: currentUser.id // Use real logged-in user ID
-    })
-  }
+      adminUserId: currentUser.id, // Use real logged-in user ID
+    });
+  };
 
   const renderQuestion = (question: Question) => {
-    const currentAnswer = section1Answers.find(a => a.questionId === question.id)?.value || ''
+    const currentAnswer =
+      section1Answers.find((a) => a.questionId === question.id)?.value || "";
 
     switch (question.questionType) {
-      case 'TEXT':
+      case "TEXT":
         return (
           <Input
             value={currentAnswer}
@@ -257,9 +281,9 @@ const RifCreationForm = ({
             placeholder="Enter your answer"
             className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
           />
-        )
+        );
 
-      case 'TEXTAREA':
+      case "TEXTAREA":
         return (
           <textarea
             value={currentAnswer}
@@ -268,20 +292,26 @@ const RifCreationForm = ({
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             placeholder="Enter your answer"
           />
-        )
+        );
 
-      case 'SINGLE_CHOICE':
-        const singleChoices = question.questionOptions?.choices || question.options?.choices || []
+      case "SINGLE_CHOICE":
+        const singleChoices =
+          question.questionOptions?.choices || question.options?.choices || [];
         return (
           <div className="space-y-2">
             {singleChoices.map((choice: any) => (
-              <label key={choice.value} className="flex items-center group cursor-pointer">
+              <label
+                key={choice.value}
+                className="flex items-center group cursor-pointer"
+              >
                 <input
                   type="radio"
                   name={question.id}
                   value={choice.value}
                   checked={currentAnswer === choice.value}
-                  onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                  onChange={(e) =>
+                    handleAnswerChange(question.id, e.target.value)
+                  }
                   className="mr-3 text-teal-600 focus:ring-teal-500"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-teal-600 transition-colors">
@@ -290,15 +320,21 @@ const RifCreationForm = ({
               </label>
             ))}
           </div>
-        )
+        );
 
-      case 'MULTIPLE_CHOICE':
-        const selectedValues = Array.isArray(currentAnswer) ? currentAnswer : []
-        const multipleChoices = question.questionOptions?.choices || question.options?.choices || []
+      case "MULTIPLE_CHOICE":
+        const selectedValues = Array.isArray(currentAnswer)
+          ? currentAnswer
+          : [];
+        const multipleChoices =
+          question.questionOptions?.choices || question.options?.choices || [];
         return (
           <div className="space-y-2">
             {multipleChoices.map((choice: any) => (
-              <label key={choice.value} className="flex items-center group cursor-pointer">
+              <label
+                key={choice.value}
+                className="flex items-center group cursor-pointer"
+              >
                 <input
                   type="checkbox"
                   value={choice.value}
@@ -306,8 +342,8 @@ const RifCreationForm = ({
                   onChange={(e) => {
                     const newValues = e.target.checked
                       ? [...selectedValues, choice.value]
-                      : selectedValues.filter(v => v !== choice.value)
-                    handleAnswerChange(question.id, newValues)
+                      : selectedValues.filter((v) => v !== choice.value);
+                    handleAnswerChange(question.id, newValues);
                   }}
                   className="mr-3 text-teal-600 focus:ring-teal-500"
                 />
@@ -317,10 +353,11 @@ const RifCreationForm = ({
               </label>
             ))}
           </div>
-        )
+        );
 
-      case 'DROPDOWN':
-        const dropdownChoices = question.questionOptions?.choices || question.options?.choices || []
+      case "DROPDOWN":
+        const dropdownChoices =
+          question.questionOptions?.choices || question.options?.choices || [];
         return (
           <select
             value={currentAnswer}
@@ -334,9 +371,9 @@ const RifCreationForm = ({
               </option>
             ))}
           </select>
-        )
+        );
 
-      case 'DATE':
+      case "DATE":
         return (
           <Input
             type="date"
@@ -344,9 +381,9 @@ const RifCreationForm = ({
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
             className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
           />
-        )
+        );
 
-      case 'BOOLEAN':
+      case "BOOLEAN":
         return (
           <div className="flex space-x-6">
             <label className="flex items-center group cursor-pointer">
@@ -354,25 +391,33 @@ const RifCreationForm = ({
                 type="radio"
                 name={question.id}
                 value="true"
-                checked={currentAnswer === 'true'}
-                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                checked={currentAnswer === "true"}
+                onChange={(e) =>
+                  handleAnswerChange(question.id, e.target.value)
+                }
                 className="mr-2 text-teal-600 focus:ring-teal-500"
               />
-              <span className="text-sm text-gray-700 group-hover:text-teal-600 transition-colors">Yes</span>
+              <span className="text-sm text-gray-700 group-hover:text-teal-600 transition-colors">
+                Yes
+              </span>
             </label>
             <label className="flex items-center group cursor-pointer">
               <input
                 type="radio"
                 name={question.id}
                 value="false"
-                checked={currentAnswer === 'false'}
-                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                checked={currentAnswer === "false"}
+                onChange={(e) =>
+                  handleAnswerChange(question.id, e.target.value)
+                }
                 className="mr-2 text-teal-600 focus:ring-teal-500"
               />
-              <span className="text-sm text-gray-700 group-hover:text-teal-600 transition-colors">No</span>
+              <span className="text-sm text-gray-700 group-hover:text-teal-600 transition-colors">
+                No
+              </span>
             </label>
           </div>
-        )
+        );
 
       default:
         return (
@@ -382,9 +427,9 @@ const RifCreationForm = ({
             placeholder="Enter your answer"
             className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
           />
-        )
+        );
     }
-  }
+  };
 
   if (isLoading) {
     return (
@@ -402,7 +447,7 @@ const RifCreationForm = ({
           <p className="text-gray-600">Loading RIF form...</p>
         </div>
       </motion.div>
-    )
+    );
   }
 
   return (
@@ -416,41 +461,49 @@ const RifCreationForm = ({
       <Card className="border-0 bg-white/70 backdrop-blur-sm shadow-lg">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Create New RIF Assessment</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Create New RIF Assessment
+            </h3>
             <Badge variant="secondary" className="bg-teal-100 text-teal-700">
               Step {currentStep} of 2
             </Badge>
           </div>
-          
+
           <div className="flex items-center">
-            <motion.div 
+            <motion.div
               className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-medium transition-colors duration-300 ${
-                currentStep >= 1 ? 'bg-teal-600 text-white' : 'bg-gray-300 text-gray-600'
+                currentStep >= 1
+                  ? "bg-teal-600 text-white"
+                  : "bg-gray-300 text-gray-600"
               }`}
               animate={{ scale: currentStep === 1 ? 1.1 : 1 }}
             >
-              {currentStep > 1 ? <CheckCircle className="w-5 h-5" /> : '1'}
+              {currentStep > 1 ? <CheckCircle className="w-5 h-5" /> : "1"}
             </motion.div>
-            <motion.div 
+            <motion.div
               className={`flex-1 h-2 mx-4 rounded-full transition-colors duration-500 ${
-                currentStep >= 2 ? 'bg-teal-600' : 'bg-gray-300'
+                currentStep >= 2 ? "bg-teal-600" : "bg-gray-300"
               }`}
               initial={{ scaleX: 0 }}
               animate={{ scaleX: currentStep >= 2 ? 1 : 0 }}
               style={{ originX: 0 }}
             />
-            <motion.div 
+            <motion.div
               className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-medium transition-colors duration-300 ${
-                currentStep >= 2 ? 'bg-teal-600 text-white' : 'bg-gray-300 text-gray-600'
+                currentStep >= 2
+                  ? "bg-teal-600 text-white"
+                  : "bg-gray-300 text-gray-600"
               }`}
               animate={{ scale: currentStep === 2 ? 1.1 : 1 }}
             >
               2
             </motion.div>
           </div>
-          
+
           <div className="flex justify-between mt-3">
-            <span className="text-sm text-gray-600">Third Party Information</span>
+            <span className="text-sm text-gray-600">
+              Third Party Information
+            </span>
             <span className="text-sm text-gray-600">Assignment Details</span>
           </div>
         </CardContent>
@@ -471,32 +524,34 @@ const RifCreationForm = ({
                   <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl flex items-center justify-center">
                     <Shield className="h-5 w-5 text-white" />
                   </div>
-                  {rifForm?.Sections?.[0]?.title || 'Third Party Information'}
+                  {rifForm?.Sections?.[0]?.title || "Third Party Information"}
                 </CardTitle>
                 {rifForm?.Sections?.[0]?.description && (
-                  <p className="text-gray-600">{rifForm.Sections[0].description}</p>
+                  <p className="text-gray-600">
+                    {rifForm.Sections[0].description}
+                  </p>
                 )}
               </CardHeader>
               <CardContent className="space-y-6">
-                {rifForm?.Sections?.[0]?.Questions
-                  ?.sort((a: Question, b: Question) => a.order - b.order)
-                  ?.map((question: Question, index: number) => (
-                    <motion.div
-                      key={question.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="space-y-3"
-                    >
-                      <label className="block text-sm font-medium text-gray-700">
-                        {question.questionText}
-                        {question.isRequired && (
-                          <span className="text-red-500 ml-1">*</span>
-                        )}
-                      </label>
-                      {renderQuestion(question)}
-                    </motion.div>
-                  ))}
+                {rifForm?.Sections?.[0]?.Questions?.sort(
+                  (a: Question, b: Question) => a.order - b.order
+                )?.map((question: Question, index: number) => (
+                  <motion.div
+                    key={question.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="space-y-3"
+                  >
+                    <label className="block text-sm font-medium text-gray-700">
+                      {question.questionText}
+                      {question.isRequired && (
+                        <span className="text-red-500 ml-1">*</span>
+                      )}
+                    </label>
+                    {renderQuestion(question)}
+                  </motion.div>
+                ))}
               </CardContent>
             </Card>
           </motion.div>
@@ -519,9 +574,12 @@ const RifCreationForm = ({
               <div className="flex items-center">
                 <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
                 <div>
-                  <h4 className="font-medium text-green-900">Section 1 Completed</h4>
+                  <h4 className="font-medium text-green-900">
+                    Section 1 Completed
+                  </h4>
                   <p className="text-sm text-green-800 mt-1">
-                    Third party information has been collected. Now assign the assessment to an internal user.
+                    Third party information has been collected. Now assign the
+                    assessment to an internal user.
                   </p>
                 </div>
               </div>
@@ -550,7 +608,9 @@ const RifCreationForm = ({
                     </label>
                     <Input
                       value={assignment.name}
-                      onChange={(e) => setAssignment({ ...assignment, name: e.target.value })}
+                      onChange={(e) =>
+                        setAssignment({ ...assignment, name: e.target.value })
+                      }
                       placeholder="John Doe"
                       className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
@@ -569,7 +629,9 @@ const RifCreationForm = ({
                     <Input
                       type="email"
                       value={assignment.email}
-                      onChange={(e) => setAssignment({ ...assignment, email: e.target.value })}
+                      onChange={(e) =>
+                        setAssignment({ ...assignment, email: e.target.value })
+                      }
                       placeholder="john.doe@company.com"
                       className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
@@ -587,7 +649,12 @@ const RifCreationForm = ({
                     </label>
                     <select
                       value={assignment.department}
-                      onChange={(e) => setAssignment({ ...assignment, department: e.target.value })}
+                      onChange={(e) =>
+                        setAssignment({
+                          ...assignment,
+                          department: e.target.value,
+                        })
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     >
                       <option value="">Select Department</option>
@@ -612,13 +679,17 @@ const RifCreationForm = ({
                     </label>
                     <select
                       value={assignment.role}
-                      onChange={(e) => setAssignment({ ...assignment, role: e.target.value })}
+                      onChange={(e) =>
+                        setAssignment({ ...assignment, role: e.target.value })
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     >
                       <option value="">Select Role</option>
                       <option value="Security Manager">Security Manager</option>
                       <option value="Risk Analyst">Risk Analyst</option>
-                      <option value="Compliance Officer">Compliance Officer</option>
+                      <option value="Compliance Officer">
+                        Compliance Officer
+                      </option>
                       <option value="Senior Analyst">Senior Analyst</option>
                       <option value="Team Lead">Team Lead</option>
                     </select>
@@ -636,9 +707,14 @@ const RifCreationForm = ({
                     </label>
                     <Input
                       type="date"
-                      min={new Date().toISOString().split('T')[0]}
+                      min={new Date().toISOString().split("T")[0]}
                       value={assignment.dueDate}
-                      onChange={(e) => setAssignment({ ...assignment, dueDate: e.target.value })}
+                      onChange={(e) =>
+                        setAssignment({
+                          ...assignment,
+                          dueDate: e.target.value,
+                        })
+                      }
                       className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                   </motion.div>
@@ -654,7 +730,12 @@ const RifCreationForm = ({
                     </label>
                     <textarea
                       value={assignment.comments}
-                      onChange={(e) => setAssignment({ ...assignment, comments: e.target.value })}
+                      onChange={(e) =>
+                        setAssignment({
+                          ...assignment,
+                          comments: e.target.value,
+                        })
+                      }
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                       placeholder="Additional instructions or context for the assignee..."
@@ -701,7 +782,9 @@ const RifCreationForm = ({
           {currentStep === 2 && (
             <Button
               onClick={handleSubmit}
-              disabled={!isAssignmentComplete() || initiateRifMutation.isPending}
+              disabled={
+                !isAssignmentComplete() || initiateRifMutation.isPending
+              }
               className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {initiateRifMutation.isPending && (
@@ -718,67 +801,81 @@ const RifCreationForm = ({
         </div>
       </motion.div>
     </motion.div>
-  )
-}
+  );
+};
 
 // Main Component
 export default function ClientVendorPage() {
-  const [showRifForm, setShowRifForm] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const [userLoading, setUserLoading] = useState(true)
+  const [showRifForm, setShowRifForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userLoading, setUserLoading] = useState(true);
+
+  const router = useRouter();
 
   // Load user on component mount
   useEffect(() => {
-    const user = getCurrentUser()
+    const user = getCurrentUser();
     if (user) {
-      console.log('Using real user data:', user)
-      setCurrentUser(user)
+      console.log("Using real user data:", user);
+      setCurrentUser(user);
     }
-    setUserLoading(false)
-  }, [])
+    setUserLoading(false);
+  }, []);
 
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   // Fetch my initiations
   const { data: initiations, isLoading: initiationsLoading } = useQuery({
-    queryKey: ['my-initiations', currentUser?.id],
+    queryKey: ["my-initiations", currentUser?.id],
     queryFn: async () => {
       if (!currentUser?.id) {
-        throw new Error('User not authenticated')
+        throw new Error("User not authenticated");
       }
-      const response = await fetch(API_ROUTES.RIF.GET_MY_INITIATIONS(currentUser.id))
-      if (!response.ok) throw new Error('Failed to fetch initiations')
-      return response.json()
+      const response = await fetch(
+        API_ROUTES.RIF.GET_MY_INITIATIONS(currentUser.id)
+      );
+      if (!response.ok) throw new Error("Failed to fetch initiations");
+      return response.json();
     },
     enabled: !!currentUser?.id, // Only run when user is loaded
-  })
+  });
 
   // Filter initiations
-  const filteredInitiations = initiations?.initiations?.filter((initiation: any) => {
-    if (filterStatus === 'all') return true
-    return initiation.status.toLowerCase() === filterStatus.toLowerCase()
-  }) || []
+  const filteredInitiations =
+    initiations?.initiations?.filter((initiation: any) => {
+      if (filterStatus === "all") return true;
+      return initiation.status.toLowerCase() === filterStatus.toLowerCase();
+    }) || [];
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'assigned': return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'in_progress': return 'bg-purple-100 text-purple-800 border-purple-200'
-      case 'completed': return 'bg-green-100 text-green-800 border-green-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+      case "assigned":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "in_progress":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "completed":
+        return "bg-green-100 text-green-800 border-green-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
-  }
+  };
 
   const getRiskColor = (riskLevel: string) => {
     switch (riskLevel?.toLowerCase()) {
-      case 'low': return 'bg-green-100 text-green-800 border-green-200'
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'high': return 'bg-red-100 text-red-800 border-red-200'
-      default: return 'bg-gray-100 text-gray-800 border-gray-200'
+      case "low":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "high":
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
-  }
+  };
 
   // Show loading if user not loaded or initiations loading
   if (userLoading || !currentUser) {
@@ -798,7 +895,9 @@ export default function ClientVendorPage() {
             />
             <div>
               <p className="text-gray-600 mb-2">
-                {userLoading ? 'Loading user data...' : 'User not authenticated'}
+                {userLoading
+                  ? "Loading user data..."
+                  : "User not authenticated"}
               </p>
               {!userLoading && !currentUser && (
                 <p className="text-sm text-red-600">
@@ -809,7 +908,7 @@ export default function ClientVendorPage() {
           </div>
         </motion.div>
       </div>
-    )
+    );
   }
 
   if (initiationsLoading) {
@@ -831,19 +930,22 @@ export default function ClientVendorPage() {
           </div>
         </motion.div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/40 relative overflow-hidden">
       <FloatingParticles />
-      
+
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-[0.02]">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, rgb(15 23 42) 1px, transparent 0)`,
-          backgroundSize: '40px 40px'
-        }} />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgb(15 23 42) 1px, transparent 0)`,
+            backgroundSize: "40px 40px",
+          }}
+        />
       </div>
 
       <div className="relative z-10">
@@ -864,10 +966,12 @@ export default function ClientVendorPage() {
                   Risk Intake Form (RIF)
                 </h1>
                 <p className="mt-1 text-gray-600">
-                  Welcome, {currentUser.name} ({currentUser.email}) - {currentUser.role} | Initiate and manage third-party risk assessments
+                  Welcome, {currentUser.name} ({currentUser.email}) -{" "}
+                  {currentUser.role} | Initiate and manage third-party risk
+                  assessments
                 </p>
               </motion.div>
-              
+
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -880,7 +984,9 @@ export default function ClientVendorPage() {
                   className="bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700 shadow-lg group"
                 >
                   <Plus className="h-4 w-4 mr-2 group-hover:rotate-90 transition-transform duration-200" />
-                  {showRifForm ? 'View Assessments' : 'Start New RIF Assessment'}
+                  {showRifForm
+                    ? "View Assessments"
+                    : "Start New RIF Assessment"}
                 </Button>
               </motion.div>
             </div>
@@ -899,8 +1005,10 @@ export default function ClientVendorPage() {
               >
                 <RifCreationForm
                   onSuccess={() => {
-                    setShowRifForm(false)
-                    queryClient.invalidateQueries({ queryKey: ['my-initiations'] })
+                    setShowRifForm(false);
+                    queryClient.invalidateQueries({
+                      queryKey: ["my-initiations"],
+                    });
                   }}
                   currentUser={currentUser}
                 />
@@ -923,7 +1031,7 @@ export default function ClientVendorPage() {
                         </div>
                         My RIF Assessments ({filteredInitiations.length})
                       </CardTitle>
-                      
+
                       <div className="flex items-center space-x-4">
                         <motion.div
                           initial={{ opacity: 0, x: 20 }}
@@ -939,7 +1047,7 @@ export default function ClientVendorPage() {
                             className="pl-10 w-64 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                           />
                         </motion.div>
-                        
+
                         <motion.div
                           initial={{ opacity: 0, x: 20 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -972,21 +1080,24 @@ export default function ClientVendorPage() {
                         className="text-center py-16"
                       >
                         <motion.div
-                          animate={{ 
+                          animate={{
                             y: [0, -10, 0],
-                            rotate: [0, 5, -5, 0]
+                            rotate: [0, 5, -5, 0],
                           }}
-                          transition={{ 
+                          transition={{
                             duration: 3,
                             repeat: Infinity,
-                            ease: "easeInOut"
+                            ease: "easeInOut",
                           }}
                         >
                           <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                         </motion.div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No RIF Assessments</h3>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                          No RIF Assessments
+                        </h3>
                         <p className="text-gray-500 mb-6">
-                          Get started by creating your first Risk Intake Form assessment
+                          Get started by creating your first Risk Intake Form
+                          assessment
                         </p>
                         <motion.div
                           whileHover={{ scale: 1.05 }}
@@ -1005,11 +1116,17 @@ export default function ClientVendorPage() {
                       <div className="divide-y divide-gray-200">
                         {filteredInitiations
                           .filter((initiation: any) => {
-                            if (!searchTerm) return true
-                            return initiation.Vendor?.User?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                   initiation.section1Data?.some((answer: any) => 
-                                     answer.value?.toLowerCase().includes(searchTerm.toLowerCase())
-                                   )
+                            if (!searchTerm) return true;
+                            return (
+                              initiation.Vendor?.User?.name
+                                ?.toLowerCase()
+                                .includes(searchTerm.toLowerCase()) ||
+                              initiation.section1Data?.some((answer: any) =>
+                                answer.value
+                                  ?.toLowerCase()
+                                  .includes(searchTerm.toLowerCase())
+                              )
+                            );
                           })
                           .map((initiation: any, index: number) => (
                             <motion.div
@@ -1022,94 +1139,140 @@ export default function ClientVendorPage() {
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-3 mb-4">
-                                    <motion.h3 
+                                    <motion.h3
                                       className="text-lg font-semibold text-gray-900 group-hover:text-teal-700 transition-colors"
                                       whileHover={{ x: 5 }}
                                     >
-                                      {initiation.section1Data?.find((answer: any) => 
-                                        answer.questionId.includes('vendor-name') || 
-                                        answer.questionId.includes('third-party-name') ||
-                                        answer.questionId.includes('legal-name')
-                                      )?.value || initiation.Vendor?.User?.name || 'Third Party Assessment'}
+                                      {initiation.section1Data?.find(
+                                        (answer: any) =>
+                                          answer.questionId.includes(
+                                            "vendor-name"
+                                          ) ||
+                                          answer.questionId.includes(
+                                            "third-party-name"
+                                          ) ||
+                                          answer.questionId.includes(
+                                            "legal-name"
+                                          )
+                                      )?.value ||
+                                        initiation.Vendor?.User?.name ||
+                                        "Third Party Assessment"}
                                     </motion.h3>
-                                    
-                                    <Badge className={`px-3 py-1 text-xs font-medium border ${getStatusColor(initiation.status)}`}>
+
+                                    <Badge
+                                      className={`px-3 py-1 text-xs font-medium border ${getStatusColor(
+                                        initiation.status
+                                      )}`}
+                                    >
                                       {initiation.status}
                                     </Badge>
                                   </div>
-                                  
+
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-600">
-                                    <motion.div 
+                                    <motion.div
                                       className="flex items-center"
                                       whileHover={{ x: 5 }}
                                     >
                                       <Users className="h-4 w-4 mr-3 text-teal-500" />
                                       <span>
-                                        <strong className="text-gray-700">Assigned to:</strong> {initiation.internalUserName}
+                                        <strong className="text-gray-700">
+                                          Assigned to:
+                                        </strong>{" "}
+                                        {initiation.internalUserName}
                                       </span>
                                     </motion.div>
-                                    
-                                    <motion.div 
+
+                                    <motion.div
                                       className="flex items-center"
                                       whileHover={{ x: 5 }}
                                     >
                                       <Calendar className="h-4 w-4 mr-3 text-blue-500" />
                                       <span>
-                                        <strong className="text-gray-700">Due:</strong> {new Date(initiation.dueDate).toLocaleDateString()}
+                                        <strong className="text-gray-700">
+                                          Due:
+                                        </strong>{" "}
+                                        {new Date(
+                                          initiation.dueDate
+                                        ).toLocaleDateString()}
                                       </span>
                                     </motion.div>
-                                    
-                                    <motion.div 
+
+                                    <motion.div
                                       className="flex items-center"
                                       whileHover={{ x: 5 }}
                                     >
                                       <Mail className="h-4 w-4 mr-3 text-purple-500" />
-                                      <span className="truncate">{initiation.internalUserEmail}</span>
+                                      <span className="truncate">
+                                        {initiation.internalUserEmail}
+                                      </span>
                                     </motion.div>
-                                    
+
                                     {initiation.RifSubmission?.riskLevel && (
-                                      <motion.div 
+                                      <motion.div
                                         className="flex items-center"
                                         whileHover={{ x: 5 }}
                                       >
                                         <AlertCircle className="h-4 w-4 mr-3 text-orange-500" />
                                         <span>
-                                          <strong className="text-gray-700">Risk:</strong>
-                                          <Badge className={`ml-2 px-2 py-1 text-xs font-medium border ${getRiskColor(initiation.RifSubmission.riskLevel)}`}>
+                                          <strong className="text-gray-700">
+                                            Risk:
+                                          </strong>
+                                          <Badge
+                                            className={`ml-2 px-2 py-1 text-xs font-medium border ${getRiskColor(
+                                              initiation.RifSubmission.riskLevel
+                                            )}`}
+                                          >
                                             {initiation.RifSubmission.riskLevel}
                                           </Badge>
                                         </span>
                                       </motion.div>
                                     )}
-                                    
-                                    <motion.div 
+
+                                    <motion.div
                                       className="flex items-center"
                                       whileHover={{ x: 5 }}
                                     >
                                       <Clock className="h-4 w-4 mr-3 text-gray-400" />
                                       <span>
-                                        <strong className="text-gray-700">Created:</strong> {new Date(initiation.createdAt).toLocaleDateString()}
+                                        <strong className="text-gray-700">
+                                          Created:
+                                        </strong>{" "}
+                                        {new Date(
+                                          initiation.createdAt
+                                        ).toLocaleDateString()}
                                       </span>
                                     </motion.div>
-                                    
+
                                     {initiation.assignmentComments && (
-                                      <motion.div 
+                                      <motion.div
                                         className="md:col-span-2 lg:col-span-3"
                                         whileHover={{ x: 5 }}
                                       >
-                                        <span className="text-gray-400 mr-2">💬</span>
-                                        <span><strong className="text-gray-700">Comments:</strong> {initiation.assignmentComments}</span>
+                                        <span className="text-gray-400 mr-2">
+                                          💬
+                                        </span>
+                                        <span>
+                                          <strong className="text-gray-700">
+                                            Comments:
+                                          </strong>{" "}
+                                          {initiation.assignmentComments}
+                                        </span>
                                       </motion.div>
                                     )}
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex items-center space-x-3 ml-6">
                                   {initiation.RifSubmission?.isReviewed && (
                                     <motion.button
                                       whileHover={{ scale: 1.1 }}
                                       whileTap={{ scale: 0.9 }}
-                                      onClick={() => {/* View results */}}
+                                      onClick={() => {
+                                        // Navigate to assessment results page
+                                        router.push(
+                                          `/client/result/${initiation.RifSubmission.id}`
+                                        );
+                                      }}
                                       className="p-2 text-gray-400 hover:text-teal-600 transition-colors rounded-lg hover:bg-teal-50"
                                       title="View Assessment Results"
                                     >
@@ -1133,5 +1296,5 @@ export default function ClientVendorPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

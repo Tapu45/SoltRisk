@@ -206,13 +206,26 @@ model RifSubmission {
   totalScore    Int?
   riskLevel     RiskLevel?
   isReviewed    Boolean         @default(false)
-
   submittedBy   String?  
+
+  approvalStatus ApprovalStatus  @default(PENDING_REVIEW)
+  approvedBy     String?         // Client admin who approved/rejected
+  approvedAt     DateTime?       // When it was approved/rejected
+  rejectionReason String?        // Why it was rejected
+  approvalComments String?       // Additional approval comments
+  
   
   Initiation    RifInitiation   @relation(fields: [initiationId], references: [id])
   Form          RifForm         @relation(fields: [formId], references: [id])
   Answers       RifAnswer[]
   RiskAssessment RiskAssessment?
+}
+
+enum ApprovalStatus {
+  PENDING_REVIEW    // Submitted, waiting for client review
+  APPROVED          // Client approved the assessment
+  REJECTED          // Client rejected, needs revision
+  RESUBMITTED       // Resubmitted after rejection
 }
 
 model RifSection {

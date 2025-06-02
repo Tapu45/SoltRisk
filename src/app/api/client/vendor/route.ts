@@ -242,12 +242,134 @@ export async function GET(request: NextRequest) {
                 where: { initiatedBy: adminId },
                 include: {
                     Vendor: { include: { User: { select: { name: true, email: true } } } },
-                    RifSubmission: { select: { id: true, isReviewed: true, riskLevel: true } }
+                    RifSubmission: {
+                        select: {
+                            id: true,
+                            isReviewed: true,
+                            riskLevel: true,
+                            approvalStatus: true,
+                            submittedBy: true,
+                            submittedAt: true
+                        }
+                    }
                 },
                 orderBy: { createdAt: 'desc' }
             })
 
             return NextResponse.json({ initiations })
+        }
+
+        if (action === 'submission-details' && submissionId) {
+            const submission = await prisma.rifSubmission.findUnique({
+                where: { id: submissionId },
+                include: {
+                    Answers: {
+                        include: {
+                            Question: {
+                                include: {
+                                    Section: true
+                                }
+                            }
+                        }
+                    },
+                    Form: {
+                        include: {
+                            Sections: {
+                                orderBy: { order: 'asc' },
+                                include: {
+                                    Questions: {
+                                        orderBy: { order: 'asc' }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    Initiation: {
+                        include: {
+                            Vendor: {
+                                include: {
+                                    User: true
+                                }
+                            }
+                        }
+                    },
+                    RiskAssessment: true
+                }
+            })
+
+            if (!submission) {
+                return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
+            }
+
+            // Group answers by section
+            const answersBySection = submission.Answers.reduce((acc: any, answer: any) => {
+                const sectionId = answer.Question.sectionId
+                const sectionTitle = answer.Question.Section.title
+                const sectionOrder = answer.Question.Section.order
+
+                if (!acc[sectionId]) {
+                    acc[sectionId] = {
+                        id: sectionId,
+                        title: sectionTitle,
+                        order: sectionOrder,
+                        answers: []
+                    }
+                }
+
+                acc[sectionId].answers.push({
+                    questionId: answer.questionId,
+                    questionText: answer.Question.questionText,
+                    questionType: answer.Question.questionType,
+                    answerValue: answer.answerValue,
+                    points: answer.points,
+                    isRequired: answer.Question.isRequired,
+                    order: answer.Question.order
+                })
+
+                return acc
+            }, {})
+
+            // Sort sections and answers
+            const sortedSections = Object.values(answersBySection)
+                .sort((a: any, b: any) => a.order - b.order)
+                .map((section: any) => ({
+                    ...section,
+                    answers: section.answers.sort((a: any, b: any) => a.order - b.order)
+                }))
+
+            return NextResponse.json({
+                submission: {
+                    id: submission.id,
+                    submittedAt: submission.submittedAt,
+                    reviewedAt: submission.reviewedAt,
+                    submittedBy: submission.submittedBy,
+                    clientComments: submission.clientComments,
+                    totalScore: submission.totalScore,
+                    riskLevel: submission.riskLevel,
+                    isReviewed: submission.isReviewed,
+                    approvalStatus: submission.approvalStatus,
+                    approvedBy: submission.approvedBy,
+                    approvedAt: submission.approvedAt,
+                    rejectionReason: submission.rejectionReason,
+                    approvalComments: submission.approvalComments
+                },
+                initiation: {
+                    id: submission.Initiation.id,
+                    internalUserName: submission.Initiation.internalUserName,
+                    internalUserEmail: submission.Initiation.internalUserEmail,
+                    internalUserDept: submission.Initiation.internalUserDept,
+                    internalUserRole: submission.Initiation.internalUserRole,
+                    assignmentComments: submission.Initiation.assignmentComments,
+                    dueDate: submission.Initiation.dueDate,
+                    section1Data: submission.Initiation.section1Data
+                },
+                vendor: {
+                    name: submission.Initiation.Vendor?.User?.name,
+                    email: submission.Initiation.Vendor?.User?.email
+                },
+                riskAssessment: submission.RiskAssessment,
+                sections: sortedSections
+            })
         }
 
         return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 })
@@ -349,7 +471,8 @@ export async function POST(request: NextRequest) {
                         totalScore: riskAssessment.totalScore,
                         riskLevel: riskAssessment.riskLevel,
                         isReviewed: true,
-                        reviewedAt: new Date()
+                        reviewedAt: new Date(),
+                        approvalStatus: 'PENDING_REVIEW'
                     }
                 })
 
@@ -357,7 +480,7 @@ export async function POST(request: NextRequest) {
                 await tx.rifInitiation.update({
                     where: { id: submission.initiationId },
                     data: {
-                        status: 'COMPLETED'
+                        status: 'SUBMITTED'
                     }
                 })
 
@@ -381,7 +504,7 @@ export async function POST(request: NextRequest) {
                 success: true,
                 submissionId,
                 riskAssessment,
-                submittedBy: submittedBy
+                approvalStatus: 'PENDING_REVIEW'
             })
         }
 
@@ -539,6 +662,89 @@ export async function POST(request: NextRequest) {
                     details: error instanceof Error ? error.message : 'Unknown error'
                 }, { status: 500 })
             }
+        }
+
+        if (action === 'approve-submission') {
+            const { submissionId, approvedBy, approvalComments } = await request.json()
+
+            const submission = await prisma.rifSubmission.findUnique({
+                where: { id: submissionId },
+                include: { Initiation: true }
+            })
+
+            if (!submission) {
+                return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
+            }
+
+            if (!submission.isReviewed) {
+                return NextResponse.json({ error: 'Submission must be completed before approval' }, { status: 400 })
+            }
+
+            const updatedSubmission = await prisma.rifSubmission.update({
+                where: { id: submissionId },
+                data: {
+                    approvalStatus: 'APPROVED',
+                    approvedBy,
+                    approvedAt: new Date(),
+                    approvalComments
+                }
+            })
+
+            // Update initiation status
+            await prisma.rifInitiation.update({
+                where: { id: submission.initiationId },
+                data: {
+                    status: 'COMPLETED'
+                }
+            })
+
+            return NextResponse.json({
+                success: true,
+                message: 'RIF assessment approved successfully',
+                submission: updatedSubmission
+            })
+        }
+
+        if (action === 'reject-submission') {
+            const { submissionId, rejectedBy, rejectionReason, approvalComments } = await request.json()
+
+            const submission = await prisma.rifSubmission.findUnique({
+                where: { id: submissionId },
+                include: { Initiation: true }
+            })
+
+            if (!submission) {
+                return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
+            }
+
+            if (!submission.isReviewed) {
+                return NextResponse.json({ error: 'Submission must be completed before rejection' }, { status: 400 })
+            }
+
+            const updatedSubmission = await prisma.rifSubmission.update({
+                where: { id: submissionId },
+                data: {
+                    approvalStatus: 'REJECTED',
+                    approvedBy: rejectedBy,
+                    approvedAt: new Date(),
+                    rejectionReason,
+                    approvalComments
+                }
+            })
+
+            // Update initiation status back to PENDING for revision
+            await prisma.rifInitiation.update({
+                where: { id: submission.initiationId },
+                data: {
+                    status: 'PENDING'
+                }
+            })
+
+            return NextResponse.json({
+                success: true,
+                message: 'RIF assessment rejected. User will be notified.',
+                submission: updatedSubmission
+            })
         }
 
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
@@ -820,12 +1026,12 @@ async function calculateProgress(submissionId: string) {
 
     submission.Form.Sections.forEach(section => {
         const sectionRequiredQuestions = section.Questions.length
-        
+
         // Special handling for Section 1 (already completed by admin)
         if (section.order === 1) {
             // Section 1 is always 100% if section1Data exists
             sectionProgress[section.id] = submission.Initiation?.section1Data ? 100 : 0
-            
+
             // If section1Data exists, count all questions as answered
             if (submission.Initiation?.section1Data) {
                 totalRequiredQuestions += sectionRequiredQuestions
@@ -839,11 +1045,11 @@ async function calculateProgress(submissionId: string) {
             const sectionAnsweredQuestions = submission.Answers.filter(answer => {
                 const question = section.Questions.find(q => q.id === answer.questionId)
                 if (!question) return false
-                
+
                 // Check if answer has valid value
                 const value = answer.answerValue
                 if (value === null || value === undefined || value === '') return false
-                
+
                 // Parse JSON for arrays and check length
                 try {
                     if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
@@ -853,7 +1059,7 @@ async function calculateProgress(submissionId: string) {
                 } catch (e) {
                     // If not JSON, treat as string
                 }
-                
+
                 return true
             }).length
 

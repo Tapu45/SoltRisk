@@ -65,6 +65,9 @@ export const API_ROUTES = {
     INITIATE_RIF: `${BASE_URL}/client/vendor?action=initiate-rif`,
     SAVE_ANSWERS: `${BASE_URL}/client/vendor?action=save-answers`,
     EDIT_SECTION: `${BASE_URL}/client/vendor?action=edit-section`,
+    GET_SUBMISSION_DETAILS: (submissionId: string) => `${BASE_URL}/client/vendor?action=submission-details&submissionId=${submissionId}`,
+    APPROVE_SUBMISSION: `${BASE_URL}/client/vendor?action=approve-submission`,
+    REJECT_SUBMISSION: `${BASE_URL}/client/vendor?action=reject-submission`,
   },
 
 
