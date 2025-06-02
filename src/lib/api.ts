@@ -51,7 +51,7 @@ export const API_ROUTES = {
   },
 
   RIF: {
-     VALIDATE_TOKEN: (token: string) => `${BASE_URL}/client/rif/validate-token?token=${token}`,
+    VALIDATE_TOKEN: (token: string) => `${BASE_URL}/client/rif/validate-token?token=${token}`,
     GET_FORM_STRUCTURE: `${BASE_URL}/client/vendor?action=form`,
     GET_DRAFT: (submissionId: string) => `${BASE_URL}/client/vendor?action=draft&submissionId=${submissionId}`,
     GET_RISK_ASSESSMENT: (submissionId: string) => `${BASE_URL}/client/vendor?action=risk-assessment&submissionId=${submissionId}`,
