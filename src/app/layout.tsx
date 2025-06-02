@@ -8,6 +8,7 @@ import Sidebar from "@/components/shared/sidebar";
 import Header from "@/components/shared/header";
 import "./globals.css";
 import { SearchProvider } from "@/context/searchProvider";
+import { QueryProvider } from "@/context/Queryprovider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,6 +40,7 @@ export default function RootLayout({
         <meta name="description" content="Evidence Management System" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <QueryProvider>
         <Toaster richColors position="top-right" />
         
         {isAuthRoute ? (
@@ -69,6 +71,7 @@ export default function RootLayout({
             </SearchProvider>
           </Suspense>
         )}
+        </QueryProvider>
       </body>
     </html>
   );

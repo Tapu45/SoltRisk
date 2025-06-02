@@ -9,6 +9,7 @@ export const API_ROUTES = {
     FORGET_PASSWORD: `${BASE_URL}/auth/forgot-password`,
     VERIFY_CODE: `${BASE_URL}/auth/verify-code`,
     RESET_PASSWORD: `${BASE_URL}/auth/reset-password`,
+    SETUP_PASSWORD: `${BASE_URL}/auth/setup-password`,
 
 
     ORGANIZATION: `${BASE_URL}/organization`,
@@ -48,6 +49,24 @@ export const API_ROUTES = {
     DELETE_BRANCH: (clientId: string, branchId: string) => 
       `${BASE_URL}/clients/${clientId}/branches/${branchId}`,
   },
+
+  RIF: {
+     VALIDATE_TOKEN: (token: string) => `${BASE_URL}/client/rif/validate-token?token=${token}`,
+    GET_FORM_STRUCTURE: `${BASE_URL}/client/vendor?action=form`,
+    GET_DRAFT: (submissionId: string) => `${BASE_URL}/client/vendor?action=draft&submissionId=${submissionId}`,
+    GET_RISK_ASSESSMENT: (submissionId: string) => `${BASE_URL}/client/vendor?action=risk-assessment&submissionId=${submissionId}`,
+    CHECK_SUBMISSION: (initiationId: string) => `${BASE_URL}/client/vendor?action=check-submission&initiationId=${initiationId}`,
+    GET_SUMMARY: (submissionId: string) => `${BASE_URL}/client/vendor?action=summary&submissionId=${submissionId}`,
+    VALIDATE_SUBMISSION: (submissionId: string) => `${BASE_URL}/client/vendor?action=validate&submissionId=${submissionId}`,
+    GET_SECTION1_FORM: `${BASE_URL}/client/vendor?action=section1-form`,
+    GET_MY_INITIATIONS: (adminId: string) => `${BASE_URL}/client/vendor?action=my-initiations&adminId=${adminId}`,
+    CREATE_DRAFT: `${BASE_URL}/client/vendor?action=create-draft`,
+    SUBMIT_FORM: `${BASE_URL}/client/vendor?action=submit`,
+    INITIATE_RIF: `${BASE_URL}/client/vendor?action=initiate-rif`,
+    SAVE_ANSWERS: `${BASE_URL}/client/vendor?action=save-answers`,
+    EDIT_SECTION: `${BASE_URL}/client/vendor?action=edit-section`,
+  },
+
 
   VENDOR: {
     GET_ALL: `${BASE_URL}/vendors`,

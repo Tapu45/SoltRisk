@@ -170,7 +170,7 @@ export default function Sidebar() {
     {
       icon: <ShoppingBag className="h-5 w-5" />,
       label: "Third Parties",
-      path: "/client/vendors",
+      path: "/client/vendor",
       hasChildren: true,
       badge: undefined,
     },

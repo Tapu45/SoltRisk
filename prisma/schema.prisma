@@ -32,6 +32,7 @@ model Client {
   createdAt DateTime @default(now())
   Branch    Branch[]
   User      User     @relation(fields: [userId], references: [id])
+  RifInitiations RifInitiation[] // Added relation
 }
 
 model Evidence {
@@ -50,18 +51,44 @@ model Staff {
   User      User     @relation(fields: [userId], references: [id])
 }
 
+model TemporaryPassword {
+  id          Int      @id @default(autoincrement())
+  userId      String   @unique @map("user_id")
+  isTemporary Boolean  @default(true) @map("is_temporary")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("temporary_passwords")
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    String   @map("user_id")
+  email     String
+  token     String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("password_reset_tokens")
+}
+
 model User {
-  id        String   @id
-  email     String   @unique
-  password  String
-  name      String
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-  Admin     Admin?
-  Client    Client?
-  Staff     Staff?
-  Vendor    Vendor?
+  id                  String                @id
+  email               String                @unique
+  password            String
+  name                String
+  role                Role
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime
+  Admin               Admin?
+  Client              Client?
+  Staff               Staff?
+  Vendor              Vendor?
+  TemporaryPassword   TemporaryPassword?    // Add this
+  PasswordResetTokens PasswordResetToken[]  // Add this
 }
 
 model Vendor {
@@ -70,6 +97,7 @@ model Vendor {
   createdAt DateTime   @default(now())
   Evidence  Evidence[]
   User      User       @relation(fields: [userId], references: [id])
+  RifInitiations RifInitiation[] // Added relation
 }
 
 // New Organization model
@@ -104,3 +132,156 @@ enum Role {
   VENDOR
   STAFF
 }
+
+
+model RifInitiation {
+  id                String        @id @default(uuid())
+  clientId          String
+  vendorId          String?
+  initiatedBy       String  
+
+  internalUserName  String
+  internalUserEmail String
+  internalUserDept  String
+  internalUserRole  String
+  assignmentComments String?     
+  dueDate           DateTime 
+
+  secureToken       String        @unique
+  tokenExpiry       DateTime
+  status            RifStatus     @default(ASSIGNED)  
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  section1Data      Json?        
+  section1CompletedAt DateTime?   
+  
+  Client            Client        @relation(fields: [clientId], references: [id])
+  Vendor            Vendor?        @relation(fields: [vendorId], references: [id])
+  RifSubmission     RifSubmission?
+}
+
+model RifForm {
+  id           String         @id @default(uuid())
+  title        String
+  description  String?
+  version      String         @default("1.0")
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  
+  Sections     RifSection[]   // NEW: Form has sections
+  Questions    RifQuestion[]
+  Submissions  RifSubmission[]
+}
+
+model RifQuestion {
+  id           String              @id @default(uuid())
+  formId       String
+  sectionId    String              // NEW: Links question to a section
+  questionText String
+  questionType RifQuestionType
+  options      Json?               // For multiple choice questions with points
+  maxPoints    Int                 @default(0)
+  weightage    Float               @default(1.0)
+  isRequired   Boolean             @default(true)
+  order        Int                 // Order within the section
+  createdAt    DateTime            @default(now())
+  
+  Form         RifForm             @relation(fields: [formId], references: [id])
+  Section      RifSection          @relation(fields: [sectionId], references: [id]) // NEW
+  Answers      RifAnswer[]
+}
+
+model RifSubmission {
+  id            String          @id @default(uuid())
+  initiationId  String          @unique
+  formId        String
+  submittedAt   DateTime        @default(now())
+  reviewedAt    DateTime?
+  section1CompletedBy String?   // Client Admin user ID
+  finalSubmittedBy    String?   // Internal User identifier
+  clientComments String?
+  totalScore    Int?
+  riskLevel     RiskLevel?
+  isReviewed    Boolean         @default(false)
+
+  submittedBy   String?  
+  
+  Initiation    RifInitiation   @relation(fields: [initiationId], references: [id])
+  Form          RifForm         @relation(fields: [formId], references: [id])
+  Answers       RifAnswer[]
+  RiskAssessment RiskAssessment?
+}
+
+model RifSection {
+  id           String        @id @default(uuid())
+  formId       String
+  title        String
+  description  String?
+  order        Int           // Section order (1-5)
+  isRequired   Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  
+  Form         RifForm       @relation(fields: [formId], references: [id])
+  Questions    RifQuestion[]
+}
+
+model RifAnswer {
+  id           String        @id @default(uuid())
+  submissionId String
+  questionId   String
+  answerValue  Json          // Stores answer data (text, choice, boolean, etc.)
+  points       Int           @default(0)
+  createdAt    DateTime      @default(now())
+  
+  Submission   RifSubmission @relation(fields: [submissionId], references: [id])
+  Question     RifQuestion   @relation(fields: [questionId], references: [id])
+
+  @@unique([submissionId, questionId])
+}
+
+model RiskAssessment {
+  id               String        @id @default(uuid())
+  submissionId     String        @unique
+  totalScore       Int
+  maxPossibleScore Int
+  riskPercentage   Float
+  riskLevel        RiskLevel
+  sectionScores    Json          // NEW: Breakdown by section (Section1: 85%, Section2: 70%, etc.)
+  recommendations  String?
+  assessedAt       DateTime      @default(now())
+  
+  Submission       RifSubmission @relation(fields: [submissionId], references: [id])
+}
+
+
+
+
+// New Enums
+enum RifStatus {
+  ASSIGNED  
+  PENDING           // Token sent, waiting for form completion
+  SUBMITTED         // Form submitted, waiting for client review
+  REVIEWED          // Client has reviewed, waiting for risk assessment
+  COMPLETED         // Risk assessment completed
+  EXPIRED           // Token expired
+}
+
+enum RifQuestionType {
+  TEXT              // Free text input
+  NUMBER            // Numeric input
+  SINGLE_CHOICE     // Radio buttons
+  MULTIPLE_CHOICE   // Checkboxes
+  BOOLEAN           // Yes/No
+  DATE              // Date picker
+  SCALE             // 1-10 rating scale
+}
+
+enum RiskLevel {
+  LOW              
+  MEDIUM            
+  HIGH              
+}
+

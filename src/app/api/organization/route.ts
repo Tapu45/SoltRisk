@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { verifyAuth } from '../../../lib/jwt'
 import { uploadImage } from '@/service/cloudinary'
-
+import { sendOrganizationWelcomeEmail } from '@/service/email'
+import bcrypt from 'bcryptjs'
 
 
 // Schema for creating an organization
@@ -190,6 +191,40 @@ export async function POST(request: NextRequest) {
       logoUrl = uploadResult.url;
     }
 
+    const temporaryPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12).toUpperCase();
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 12);
+
+    // Create user for the organization (CLIENT role)
+    const user = await prisma.user.create({
+      data: {
+        id: uuidv4(),
+        email: validation.data.email,
+        password: hashedPassword,
+        name: validation.data.managementName,
+        role: 'CLIENT',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    });
+
+    // Mark password as temporary
+   await prisma.temporaryPassword.create({
+  data: {
+    userId: user.id,
+    isTemporary: true
+  }
+});
+
+    // Create client profile
+    const client = await prisma.client.create({
+      data: {
+        id: uuidv4(),
+        userId: user.id,
+        createdAt: new Date()
+      }
+    });
+
+
     // Create new organization
     const organization = await prisma.organization.create({
       data: {
@@ -209,10 +244,26 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    try {
+      await sendOrganizationWelcomeEmail(
+        validation.data.name,
+        validation.data.email,
+        temporaryPassword
+      );
+    } catch (emailError) {
+      console.error("Error sending welcome email:", emailError);
+      // Continue with organization creation even if email fails
+      // You might want to add a flag to indicate email sending status
+    }
+
     return NextResponse.json({
       success: true,
       message: "Organization created successfully",
-      organization
+      organization: {
+        ...organization,
+        clientCreated: true,
+        emailSent: true
+      }
     }, { status: 201 })
 
   } catch (error) {
@@ -402,3 +453,4 @@ export async function DELETE(request: NextRequest) {
     )
   }
 }
+
