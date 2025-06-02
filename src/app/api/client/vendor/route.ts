@@ -791,7 +791,6 @@ function generateRecommendations(riskLevel: RiskLevel, sectionScores: any, riskP
     return recommendations.join('\n')
 }
 
-// Calculate form completion progress
 async function calculateProgress(submissionId: string) {
     const submission = await prisma.rifSubmission.findUnique({
         where: { id: submissionId },
@@ -799,9 +798,6 @@ async function calculateProgress(submissionId: string) {
             Answers: true,
             Form: {
                 include: {
-                    Questions: {
-                        where: { isRequired: true }
-                    },
                     Sections: {
                         include: {
                             Questions: {
@@ -810,34 +806,74 @@ async function calculateProgress(submissionId: string) {
                         }
                     }
                 }
-            }
+            },
+            Initiation: true  // Include initiation to check section1Data
         }
     })
 
     if (!submission) return { overall: 0, sections: {} }
 
-    const totalRequiredQuestions = submission.Form.Questions.length
-    const answeredQuestions = submission.Answers.length
-    const overallProgress = totalRequiredQuestions > 0 ?
-        Math.round((answeredQuestions / totalRequiredQuestions) * 100) : 0
-
     // Calculate section-wise progress
     const sectionProgress: any = {}
+    let totalRequiredQuestions = 0
+    let totalAnsweredQuestions = 0
+
     submission.Form.Sections.forEach(section => {
         const sectionRequiredQuestions = section.Questions.length
-        const sectionAnsweredQuestions = submission.Answers.filter(
-            answer => section.Questions.some(q => q.id === answer.questionId)
-        ).length
+        
+        // Special handling for Section 1 (already completed by admin)
+        if (section.order === 1) {
+            // Section 1 is always 100% if section1Data exists
+            sectionProgress[section.id] = submission.Initiation?.section1Data ? 100 : 0
+            
+            // If section1Data exists, count all questions as answered
+            if (submission.Initiation?.section1Data) {
+                totalRequiredQuestions += sectionRequiredQuestions
+                totalAnsweredQuestions += sectionRequiredQuestions
+            } else {
+                totalRequiredQuestions += sectionRequiredQuestions
+                // Don't add to answered if no section1Data
+            }
+        } else {
+            // For other sections, count actual user answers
+            const sectionAnsweredQuestions = submission.Answers.filter(answer => {
+                const question = section.Questions.find(q => q.id === answer.questionId)
+                if (!question) return false
+                
+                // Check if answer has valid value
+                const value = answer.answerValue
+                if (value === null || value === undefined || value === '') return false
+                
+                // Parse JSON for arrays and check length
+                try {
+                    if (typeof value === 'string' && (value.startsWith('[') || value.startsWith('{'))) {
+                        const parsed = JSON.parse(value)
+                        if (Array.isArray(parsed) && parsed.length === 0) return false
+                    }
+                } catch (e) {
+                    // If not JSON, treat as string
+                }
+                
+                return true
+            }).length
 
-        sectionProgress[section.id] = sectionRequiredQuestions > 0 ?
-            Math.round((sectionAnsweredQuestions / sectionRequiredQuestions) * 100) : 0
+            sectionProgress[section.id] = sectionRequiredQuestions > 0 ?
+                Math.round((sectionAnsweredQuestions / sectionRequiredQuestions) * 100) : 100
+
+            totalRequiredQuestions += sectionRequiredQuestions
+            totalAnsweredQuestions += sectionAnsweredQuestions
+        }
     })
+
+    // Calculate overall progress - cap at 100%
+    const overallProgress = totalRequiredQuestions > 0 ?
+        Math.min(Math.round((totalAnsweredQuestions / totalRequiredQuestions) * 100), 100) : 0
 
     return {
         overall: overallProgress,
         sections: sectionProgress,
         totalQuestions: totalRequiredQuestions,
-        answeredQuestions
+        answeredQuestions: totalAnsweredQuestions
     }
 }
 
