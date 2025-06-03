@@ -26,32 +26,6 @@ import { useRouter } from "next/navigation";
 import RifCreationForm from "@/components/forms/RifcreationForm";
 import FloatingParticles from "@/components/animation/floatingparticles";
 
-// Get current user from localStorage
-const getCurrentUser = () => {
-  if (typeof window !== "undefined") {
-    const userData = localStorage.getItem("user");
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        console.log("Current user loaded:", user);
-        return user;
-      } catch (error) {
-        console.error("Error parsing user data from localStorage:", error);
-      }
-    }
-
-    const sessionUserData = sessionStorage.getItem("user");
-    if (sessionUserData) {
-      try {
-        return JSON.parse(sessionUserData);
-      } catch (error) {
-        console.error("Error parsing user data from sessionStorage:", error);
-      }
-    }
-  }
-  return null;
-};
-
 // Main Component
 export default function ClientVendorPage() {
   const [showRifForm, setShowRifForm] = useState(false);
@@ -60,19 +34,40 @@ export default function ClientVendorPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [userLoading, setUserLoading] = useState(true);
+  const [isClient, setIsClient] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
   const router = useRouter();
 
-  // Load user on component mount
+  // Handle client-side mounting and user loading
   useEffect(() => {
-    const user = getCurrentUser();
+    setIsClient(true);
+    
+    // Get current user from localStorage only on client side
+    const getUserData = () => {
+      try {
+        const userData = localStorage.getItem("user");
+        if (userData) {
+          const user = JSON.parse(userData);
+          console.log("Current user loaded:", user);
+          return user;
+        }
+
+        const sessionUserData = sessionStorage.getItem("user");
+        if (sessionUserData) {
+          return JSON.parse(sessionUserData);
+        }
+      } catch (error) {
+        console.error("Error parsing user data:", error);
+      }
+      return null;
+    };
+
+    const user = getUserData();
     if (user) {
       console.log("Using real user data:", user);
       setCurrentUser(user);
     }
-    setUserLoading(false);
   }, []);
 
   const queryClient = useQueryClient();
@@ -90,7 +85,7 @@ export default function ClientVendorPage() {
       if (!response.ok) throw new Error("Failed to fetch initiations");
       return response.json();
     },
-    enabled: !!currentUser?.id,
+    enabled: !!currentUser?.id && isClient,
   });
 
   // Filter initiations
@@ -162,8 +157,31 @@ export default function ClientVendorPage() {
 
   const hasActiveFilters = filterStatus !== "all" || filterRisk !== "all" || startDate || endDate;
 
-  // Show loading if user not loaded or initiations loading
-  if (userLoading || !currentUser) {
+  // Show loading until client-side hydration is complete
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/40 relative overflow-hidden">
+        <FloatingParticles />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex items-center justify-center min-h-screen"
+        >
+          <div className="text-center">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="w-12 h-12 border-3 border-teal-500 border-t-transparent rounded-full mx-auto mb-4"
+            />
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Show user authentication error
+  if (!currentUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/40 relative overflow-hidden">
         <FloatingParticles />
@@ -179,14 +197,10 @@ export default function ClientVendorPage() {
               className="w-12 h-12 border-3 border-teal-500 border-t-transparent rounded-full mx-auto mb-4"
             />
             <div>
-              <p className="text-gray-600 mb-2">
-                {userLoading ? "Loading user data..." : "User not authenticated"}
+              <p className="text-gray-600 mb-2">User not authenticated</p>
+              <p className="text-sm text-red-600">
+                Please log in to access this page
               </p>
-              {!userLoading && !currentUser && (
-                <p className="text-sm text-red-600">
-                  Please log in to access this page
-                </p>
-              )}
             </div>
           </div>
         </motion.div>
@@ -194,6 +208,7 @@ export default function ClientVendorPage() {
     );
   }
 
+  // Show loading for initiations
   if (initiationsLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/40 relative overflow-hidden">
@@ -231,8 +246,8 @@ export default function ClientVendorPage() {
         />
       </div>
 
-      <div className="relative z-10 ">
-        <div className="max-w-7xl mx-auto">
+      <div className="relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <AnimatePresence mode="wait">
             {showRifForm ? (
               <motion.div
