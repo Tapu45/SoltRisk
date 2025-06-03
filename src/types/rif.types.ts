@@ -8,6 +8,7 @@ export interface Assignment {
 }
 
 export interface Question {
+  questionKey: string;
   id: string;
   questionText: string;
   questionType: string;

@@ -186,8 +186,11 @@ model RifQuestion {
   maxPoints    Int                 @default(0)
   weightage    Float               @default(1.0)
   isRequired   Boolean             @default(true)
-  order        Int                 // Order within the section
-  createdAt    DateTime            @default(now())
+  order        Int                 
+  conditionalLogic Json?          
+  questionKey     String?             
+  createdAt       DateTime         @default(now())
+  
   
   Form         RifForm             @relation(fields: [formId], references: [id])
   Section      RifSection          @relation(fields: [sectionId], references: [id]) // NEW
@@ -235,6 +238,7 @@ model RifSection {
   description  String?
   order        Int           // Section order (1-5)
   isRequired   Boolean       @default(true)
+  conditionalLogic Json?   
   createdAt    DateTime      @default(now())
   
   Form         RifForm       @relation(fields: [formId], references: [id])

@@ -410,3 +410,274 @@ export const sendRifAssignmentEmail = async (params: RifAssignmentEmailParams) =
     html: emailHtml,
   });
 };
+
+// ...existing code...
+
+// Add this interface
+interface RifReviewNotificationParams {
+  to: string
+  clientName: string
+  vendorName: string
+  submittedBy: string
+  submittedAt: string
+  riskLevel: string
+  reviewUrl: string
+  submissionId: string
+}
+
+// Add this new function
+export const sendRifReviewNotificationEmail = async (params: RifReviewNotificationParams) => {
+  const {
+    to,
+    clientName,
+    vendorName,
+    submittedBy,
+    submittedAt,
+    riskLevel,
+    reviewUrl,
+    submissionId
+  } = params
+
+  const formattedSubmissionDate = new Date(submittedAt).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+  // Risk level styling
+  const getRiskLevelStyle = (level: string) => {
+    switch (level) {
+      case 'HIGH':
+        return { 
+          color: '#dc2626', 
+          backgroundColor: '#fef2f2', 
+          borderColor: '#fca5a5',
+          icon: '🔴'
+        }
+      case 'MEDIUM':
+        return { 
+          color: '#d97706', 
+          backgroundColor: '#fffbeb', 
+          borderColor: '#fbbf24',
+          icon: '🟡'
+        }
+      case 'LOW':
+        return { 
+          color: '#16a34a', 
+          backgroundColor: '#f0fdf4', 
+          borderColor: '#86efac',
+          icon: '🟢'
+        }
+      default:
+        return { 
+          color: '#6b7280', 
+          backgroundColor: '#f9fafb', 
+          borderColor: '#d1d5db',
+          icon: '⚪'
+        }
+    }
+  }
+
+  const riskStyle = getRiskLevelStyle(riskLevel)
+
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>RIF Assessment - Ready for Review</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
+        
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 40px 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
+            ✅ RIF Assessment Complete
+          </h1>
+          <p style="color: #a7f3d0; margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">
+            Ready for your review and approval
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 40px 30px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #059669 0%, #047857 100%); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+              <span style="color: white; font-size: 36px; font-weight: bold;">📋</span>
+            </div>
+            <h2 style="color: #2d3748; margin: 0; font-size: 24px; font-weight: 600;">
+              Hello ${clientName}!
+            </h2>
+          </div>
+
+          <!-- Submission Summary -->
+          <div style="background-color: #f0fdf4; border-radius: 12px; padding: 25px; margin-bottom: 30px; border-left: 4px solid #059669;">
+            <p style="color: #374151; margin: 0 0 20px 0; font-size: 16px; line-height: 1.6;">
+              Great news! The Risk Intake Form (RIF) assessment that you initiated has been completed and is now ready for your review.
+            </p>
+            
+            <div style="background-color: #ffffff; border-radius: 8px; padding: 20px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+              <div style="display: grid; gap: 15px;">
+                <div>
+                  <label style="display: block; color: #6b7280; font-size: 14px; font-weight: 500; margin-bottom: 5px;">
+                    Vendor Name:
+                  </label>
+                  <span style="color: #1f2937; font-size: 18px; font-weight: 600;">
+                    ${vendorName}
+                  </span>
+                </div>
+                
+                <div>
+                  <label style="display: block; color: #6b7280; font-size: 14px; font-weight: 500; margin-bottom: 5px;">
+                    Completed By:
+                  </label>
+                  <span style="color: #1f2937; font-size: 16px; font-weight: 500;">
+                    ${submittedBy}
+                  </span>
+                </div>
+                
+                <div>
+                  <label style="display: block; color: #6b7280; font-size: 14px; font-weight: 500; margin-bottom: 5px;">
+                    Submitted On:
+                  </label>
+                  <span style="color: #1f2937; font-size: 16px; font-weight: 500;">
+                    ${formattedSubmissionDate}
+                  </span>
+                </div>
+
+                <div>
+                  <label style="display: block; color: #6b7280; font-size: 14px; font-weight: 500; margin-bottom: 5px;">
+                    Risk Assessment:
+                  </label>
+                  <span style="color: ${riskStyle.color}; font-size: 16px; font-weight: 600; background-color: ${riskStyle.backgroundColor}; padding: 6px 12px; border-radius: 6px; border: 1px solid ${riskStyle.borderColor}; display: inline-block;">
+                    ${riskStyle.icon} ${riskLevel} RISK
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Required -->
+          <div style="background-color: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+            <div style="display: flex; align-items: center; margin-bottom: 15px;">
+              <span style="color: #2563eb; font-size: 20px; margin-right: 10px;">⏰</span>
+              <h3 style="color: #1d4ed8; margin: 0; font-size: 16px; font-weight: 600;">
+                Action Required
+              </h3>
+            </div>
+            <p style="color: #1e40af; margin: 0; font-size: 14px; line-height: 1.5;">
+              Please review the completed assessment and either <strong>approve</strong> or <strong>reject</strong> it. You can also add comments and request revisions if needed.
+            </p>
+          </div>
+
+          <!-- Next Steps -->
+          <div style="margin-bottom: 30px;">
+            <h3 style="color: #2d3748; margin: 0 0 15px 0; font-size: 18px; font-weight: 600;">
+              📝 What You Can Do
+            </h3>
+            <ul style="color: #4a5568; font-size: 15px; line-height: 1.6; padding-left: 20px;">
+              <li style="margin-bottom: 8px;"><strong>Review:</strong> Examine all sections and risk assessment results</li>
+              <li style="margin-bottom: 8px;"><strong>Approve:</strong> Accept the assessment if everything looks good</li>
+              <li style="margin-bottom: 8px;"><strong>Reject:</strong> Send back for revisions with specific feedback</li>
+              <li style="margin-bottom: 8px;"><strong>Comment:</strong> Add notes or questions for the submitter</li>
+              <li style="margin-bottom: 8px;"><strong>Export:</strong> Download the assessment for your records</li>
+            </ul>
+          </div>
+
+          ${riskLevel === 'HIGH' ? `
+          <!-- High Risk Warning -->
+          <div style="background-color: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+              <span style="color: #dc2626; font-size: 20px; margin-right: 10px;">⚠️</span>
+              <h3 style="color: #991b1b; margin: 0; font-size: 16px; font-weight: 600;">
+                High Risk Assessment Detected
+              </h3>
+            </div>
+            <p style="color: #7f1d1d; margin: 0; font-size: 14px; line-height: 1.5;">
+              This vendor assessment has been flagged as <strong>HIGH RISK</strong>. Please review carefully and consider additional due diligence measures before approval.
+            </p>
+          </div>
+          ` : ''}
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin-bottom: 30px;">
+            <a href="${reviewUrl}" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4); transition: all 0.3s ease;">
+              🔍 Review Assessment
+            </a>
+            <p style="color: #6b7280; margin: 15px 0 0 0; font-size: 12px;">
+              Submission ID: ${submissionId}
+            </p>
+          </div>
+
+          <!-- Support Info -->
+          <div style="background-color: #f9fafb; border: 1px solid #d1d5db; border-radius: 8px; padding: 20px; text-align: center;">
+            <h4 style="color: #374151; margin: 0 0 10px 0; font-size: 16px; font-weight: 600;">
+              Need Help?
+            </h4>
+            <p style="color: #4b5563; margin: 0; font-size: 14px; line-height: 1.5;">
+              If you have questions about the assessment or need technical support:<br>
+              <strong>Support:</strong> 
+              <a href="mailto:${process.env.SUPPORT_EMAIL || process.env.GMAIL_USER}" style="color: #059669; font-weight: 600; text-decoration: none;">
+                ${process.env.SUPPORT_EMAIL || process.env.GMAIL_USER}
+              </a>
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background-color: #2d3748; padding: 25px 30px; text-align: center;">
+          <p style="color: #a0aec0; margin: 0; font-size: 14px;">
+            This email was sent to ${to}
+          </p>
+          <p style="color: #718096; margin: 10px 0 0 0; font-size: 12px;">
+            © ${new Date().getFullYear()} Risk Management Platform. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const textContent = `
+    RIF Assessment Complete - Ready for Review
+
+    Hello ${clientName},
+
+    The Risk Intake Form (RIF) assessment you initiated has been completed and is ready for your review.
+
+    Assessment Details:
+    - Vendor: ${vendorName}
+    - Completed By: ${submittedBy}
+    - Submitted: ${formattedSubmissionDate}
+    - Risk Level: ${riskLevel}
+    - Submission ID: ${submissionId}
+
+    ${riskLevel === 'HIGH' ? '⚠️ WARNING: This assessment has been flagged as HIGH RISK. Please review carefully.' : ''}
+
+    Please review and approve/reject the assessment: ${reviewUrl}
+
+    You can:
+    - Review all assessment sections
+    - Approve or reject the submission
+    - Add comments or request revisions
+    - Export the assessment for your records
+
+    If you need assistance, contact: ${process.env.SUPPORT_EMAIL || process.env.GMAIL_USER}
+
+    Best regards,
+    Risk Management Team
+  `;
+
+  await transporter.sendMail({
+    from: `"Risk Management Team" <${process.env.GMAIL_USER}>`,
+    to: to,
+    subject: `🔔 RIF Assessment Complete - ${vendorName} [${riskLevel} Risk] - Review Required`,
+    text: textContent,
+    html: emailHtml,
+  });
+};

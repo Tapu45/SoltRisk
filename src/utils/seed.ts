@@ -1,7 +1,5 @@
 import { prisma } from '../lib/prisma'
 
-
-
 async function seedRifForm() {
   try {
     // Create the RIF Form
@@ -16,17 +14,82 @@ async function seedRifForm() {
 
     console.log('✅ Created RIF Form:', rifForm.title)
 
-    // Create Sections
+    // Create Sections with conditional logic
     const sections = []
     
     const sectionData = [
-      { title: "Third Party Information", order: 1 },
-      { title: "Nature of Engagement", order: 2 },
-      { title: "Data & System Access", order: 3 },
-      { title: "Risk Considerations", order: 4 },
-      { title: "Compliance & Security", order: 5 },
-      { title: "Reputational & Sanctions Screening", order: 6 },
-      { title: "Supporting Documentation & Assessment Opt-Out", order: 7 }
+      { 
+        title: "Third Party Information", 
+        order: 1, 
+        isRequired: true 
+      },
+      { 
+        title: "Nature of Engagement", 
+        order: 2, 
+        isRequired: true 
+      },
+      { 
+        title: "Data & System Access", 
+        order: 3, 
+        isRequired: true 
+      },
+      { 
+        title: "Risk Considerations", 
+        order: 4, 
+        isRequired: true 
+      },
+      { 
+        title: "Compliance & Security", 
+        order: 5, 
+        isRequired: true 
+      },
+      { 
+        title: "Reputational & Sanctions Screening", 
+        order: 6, 
+        isRequired: false,
+        conditionalLogic: {
+          showIf: {
+            operator: "OR",
+            conditions: [
+              {
+                questionKey: "country_operations",
+                operator: "IN",
+                values: ["Russia", "Iran", "North Korea", "Syria", "Belarus"]
+              },
+              {
+                operator: "AND",
+                conditions: [
+                  {
+                    questionKey: "types_of_data",
+                    operator: "INCLUDES_ANY",
+                    values: ["Sensitive Personal/Health", "Financial"]
+                  },
+                  {
+                    questionKey: "data_volume",
+                    operator: "IN",
+                    values: ["100k-1M", ">1M"]
+                  }
+                ]
+              },
+              {
+                questionKey: "system_access_required",
+                operator: "EQUALS",
+                value: "Yes"
+              },
+              {
+                questionKey: "fourth_party_involved",
+                operator: "EQUALS",
+                value: "Yes"
+              }
+            ]
+          }
+        }
+      },
+      { 
+        title: "Supporting Documentation & Assessment Opt-Out", 
+        order: 7, 
+        isRequired: true 
+      }
     ]
 
     for (const section of sectionData) {
@@ -35,14 +98,15 @@ async function seedRifForm() {
           formId: rifForm.id,
           title: section.title,
           order: section.order,
-          isRequired: section.order <= 5 // First 5 sections are required
+          isRequired: section.isRequired,
+          conditionalLogic: section.conditionalLogic ?? undefined
         }
       })
       sections.push(createdSection)
       console.log(`✅ Created Section ${section.order}: ${section.title}`)
     }
 
-    // Questions Data
+    // Questions Data with conditional logic and question keys
     const questionsData = [
       // Section 1: Third Party Information
       {
@@ -51,7 +115,8 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: true,
         order: 1,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "third_party_name"
       },
       {
         sectionIndex: 0,
@@ -61,6 +126,7 @@ async function seedRifForm() {
         order: 2,
         maxPoints: 3,
         weightage: 1.0,
+        questionKey: "country_operations",
         options: {
           choices: [
             { value: "USA", label: "USA", riskScore: 1 },
@@ -72,7 +138,9 @@ async function seedRifForm() {
             { value: "China", label: "China", riskScore: 2 },
             { value: "Russia", label: "Russia", riskScore: 3 },
             { value: "Iran", label: "Iran", riskScore: 3 },
-            { value: "North Korea", label: "North Korea", riskScore: 3 }
+            { value: "North Korea", label: "North Korea", riskScore: 3 },
+            { value: "Syria", label: "Syria", riskScore: 3 },
+            { value: "Belarus", label: "Belarus", riskScore: 3 }
           ]
         }
       },
@@ -82,7 +150,8 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 3,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "website_url"
       },
       {
         sectionIndex: 0,
@@ -90,7 +159,8 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: true,
         order: 4,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "spoc_name"
       },
       {
         sectionIndex: 0,
@@ -98,7 +168,8 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: true,
         order: 5,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "spoc_email"
       },
       {
         sectionIndex: 0,
@@ -106,30 +177,150 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: true,
         order: 6,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "spoc_phone"
       },
-      {
-        sectionIndex: 0,
-        questionText: "Type of Third Party",
-        questionType: "SINGLE_CHOICE",
-        isRequired: true,
-        order: 7,
-        maxPoints: 2,
-        options: {
-          choices: [
-            { value: "Cybersecurity / IT Services", label: "Cybersecurity / IT Services", riskScore: 2 },
-            { value: "Banking / Fintech", label: "Banking / Fintech", riskScore: 3 },
-            { value: "Healthcare / Healthtech", label: "Healthcare / Healthtech", riskScore: 3 },
-            { value: "Retail / E-commerce", label: "Retail / E-commerce", riskScore: 2 },
-            { value: "Manufacturing / IoT / Industrial", label: "Manufacturing / IoT / Industrial", riskScore: 2 },
-            { value: "Telecom / Cloud / SaaS", label: "Telecom / Cloud / SaaS", riskScore: 2 },
-            { value: "Professional Services / BPO", label: "Professional Services / BPO", riskScore: 1 },
-            { value: "Government / Regulated Sector", label: "Government / Regulated Sector", riskScore: 3 },
-            { value: "General Services", label: "General Services", riskScore: 1 },
-            { value: "Other", label: "Other", riskScore: 2 }
-          ]
-        }
+      // Replace the existing "Type of Third Party" question (around line 160) with this:
+
+{
+  sectionIndex: 0,
+  questionText: "Type of Third Party",
+  questionType: "SINGLE_CHOICE",
+  isRequired: true,
+  order: 7,
+  maxPoints: 2,
+  questionKey: "third_party_type",
+  options: {
+    choices: [
+      { 
+        value: "Cybersecurity / IT Services", 
+        label: "Cybersecurity / IT Services", 
+        riskScore: 2,
+        subcategories: [
+          "Managed Security Service Provider (MSSP)",
+          "IT Services / ITES", 
+          "Penetration Testing / VAPT Firm",
+          "Security Product Vendor (SIEM, DLP, etc.)",
+          "Threat Intelligence Provider",
+          "SOC-as-a-Service Vendor",
+          "Cloud Security Service Provider"
+        ]
       },
+      { 
+        value: "Banking / Fintech", 
+        label: "Banking / Fintech", 
+        riskScore: 3,
+        subcategories: [
+          "Core Banking Software Vendor",
+          "Digital Lending Platform", 
+          "KYC/AML Solution Provider",
+          "Payment Gateway / Processor",
+          "Credit Scoring / Risk Rating Agency",
+          "Regulatory Reporting Vendor",
+          "Financial API Aggregator"
+        ]
+      },
+      { 
+        value: "Healthcare / Healthtech", 
+        label: "Healthcare / Healthtech", 
+        riskScore: 3,
+        subcategories: [
+          "Electronic Health Record (EHR) Vendor",
+          "Revenue Cycle Management (RCM) Partner",
+          "Telemedicine Platform",
+          "Medical Billing & Coding Vendor", 
+          "HIPAA-Compliant Cloud Provider",
+          "Claims Processing Vendor",
+          "Health Information Exchange (HIE)"
+        ]
+      },
+      { 
+        value: "Retail / E-commerce", 
+        label: "Retail / E-commerce", 
+        riskScore: 2,
+        subcategories: [
+          "POS System Provider",
+          "Loyalty Program Vendor",
+          "Digital Marketing Agency",
+          "Customer Analytics Service",
+          "Fulfillment / Logistics Partner", 
+          "Payment Processing Vendor"
+        ]
+      },
+      { 
+        value: "Manufacturing / IoT / Industrial", 
+        label: "Manufacturing / IoT / Industrial", 
+        riskScore: 2,
+        subcategories: [
+          "SCADA / ICS Vendor",
+          "IoT Device Manufacturer",
+          "Industrial Automation Provider",
+          "Robotics Vendor",
+          "Predictive Maintenance Service",
+          "Product Lifecycle Management (PLM) Vendor"
+        ]
+      },
+      { 
+        value: "Telecom / Cloud / SaaS", 
+        label: "Telecom / Cloud / SaaS", 
+        riskScore: 2,
+        subcategories: [
+          "Cloud Hosting Provider (AWS, Azure, GCP)",
+          "Telco Infrastructure Provider",
+          "SaaS Collaboration Tool (Zoom, Slack, etc.)",
+          "CDN Provider",
+          "Data Center Operator",
+          "Email Security Vendor"
+        ]
+      },
+      { 
+        value: "Professional Services / BPO", 
+        label: "Professional Services / BPO", 
+        riskScore: 1,
+        subcategories: [
+          "Business Process Outsourcing (BPO) Vendor",
+          "Legal / Contractual Advisory Firm",
+          "Compliance Consulting Partner",
+          "HR / Payroll Processing Vendor",
+          "Background Verification Agency",
+          "Audit & Assurance Firm"
+        ]
+      },
+      { 
+        value: "Government / Regulated Sector", 
+        label: "Government / Regulated Sector", 
+        riskScore: 3,
+        subcategories: [
+          "Regulatory Reporting / Audit Partner",
+          "Digital Identity & e-KYC Provider",
+          "Government-Sourced Vendor",
+          "Public Cloud with Sovereignty Clause"
+        ]
+      },
+      { 
+        value: "General Services", 
+        label: "General Services", 
+        riskScore: 1,
+        subcategories: [
+          "Managed Services Provider (MSP)",
+          "Professional Services",
+          "Legal Advisory Services",
+          "Logistics / Courier Services",
+          "Training / Awareness Program Vendor",
+          "Insurance Provider",
+          "Staffing / Recruitment Agency",
+          "Facility Management / AMC Vendor",
+          "Software Development Partner"
+        ]
+      },
+      { 
+        value: "Other", 
+        label: "Other", 
+        riskScore: 2 
+      }
+    ]
+  }
+},
       {
         sectionIndex: 0,
         questionText: "Nature of the Third Party",
@@ -137,6 +328,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 8,
         maxPoints: 2,
+        questionKey: "third_party_nature",
         options: {
           choices: [
             { value: "Established / Reputed", label: "Established / Reputed", riskScore: 1 },
@@ -152,6 +344,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 9,
         maxPoints: 3,
+        questionKey: "data_hosting",
         options: {
           choices: [
             { value: "On-Prem", label: "On-Premises", riskScore: 1 },
@@ -169,7 +362,8 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: true,
         order: 1,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "service_description"
       },
       {
         sectionIndex: 1,
@@ -177,7 +371,8 @@ async function seedRifForm() {
         questionType: "DATE",
         isRequired: true,
         order: 2,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "start_date"
       },
       {
         sectionIndex: 1,
@@ -187,6 +382,7 @@ async function seedRifForm() {
         order: 3,
         maxPoints: 3,
         weightage: 1.5,
+        questionKey: "contract_value",
         options: {
           riskScoring: [
             { min: 0, max: 25000, riskScore: 1 },
@@ -202,6 +398,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 4,
         maxPoints: 2,
+        questionKey: "contract_type",
         options: {
           choices: [
             { value: "POC", label: "Proof of Concept", riskScore: 1 },
@@ -219,6 +416,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 5,
         maxPoints: 2,
+        questionKey: "contract_duration",
         options: {
           choices: [
             { value: "<6 months", label: "Less than 6 months", riskScore: 1 },
@@ -234,6 +432,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 6,
         maxPoints: 1,
+        questionKey: "renewal_existing_third_party",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 1 },
@@ -247,7 +446,15 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 7,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "third_party_id",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "renewal_existing_third_party",
+            operator: "EQUALS",
+            value: "Yes"
+          }
+        }
       },
       {
         sectionIndex: 1,
@@ -257,6 +464,7 @@ async function seedRifForm() {
         order: 8,
         maxPoints: 2,
         weightage: 1.5,
+        questionKey: "fourth_party_involved",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 2 },
@@ -270,7 +478,15 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 9,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "fourth_party_details",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "fourth_party_involved",
+            operator: "EQUALS",
+            value: "Yes"
+          }
+        }
       },
 
       // Section 3: Data & System Access
@@ -281,7 +497,8 @@ async function seedRifForm() {
         isRequired: true,
         order: 1,
         maxPoints: 3,
-        weightage: 3.0, // Highest weightage for data sensitivity
+        weightage: 3.0,
+        questionKey: "types_of_data",
         options: {
           choices: [
             { value: "Personal", label: "Personal Data", riskScore: 2 },
@@ -299,6 +516,14 @@ async function seedRifForm() {
         isRequired: false,
         order: 2,
         maxPoints: 3,
+        questionKey: "data_classification",
+        conditionalLogic: {
+          hideIf: {
+            questionKey: "types_of_data",
+            operator: "INCLUDES",
+            value: "None"
+          }
+        },
         options: {
           choices: [
             { value: "Confidential", label: "Confidential", riskScore: 3 },
@@ -316,6 +541,14 @@ async function seedRifForm() {
         isRequired: false,
         order: 3,
         maxPoints: 2,
+        questionKey: "personal_data_types",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "types_of_data",
+            operator: "INCLUDES_ANY",
+            values: ["Personal", "Sensitive Personal/Health"]
+          }
+        },
         options: {
           choices: [
             { value: "Customer", label: "Customer Data", riskScore: 2 },
@@ -332,6 +565,14 @@ async function seedRifForm() {
         order: 4,
         maxPoints: 3,
         weightage: 2.0,
+        questionKey: "data_volume",
+        conditionalLogic: {
+          hideIf: {
+            questionKey: "types_of_data",
+            operator: "INCLUDES",
+            value: "None"
+          }
+        },
         options: {
           choices: [
             { value: "None", label: "None", riskScore: 1 },
@@ -351,6 +592,14 @@ async function seedRifForm() {
         isRequired: false,
         order: 5,
         maxPoints: 3,
+        questionKey: "pii_volume",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "types_of_data",
+            operator: "INCLUDES_ANY",
+            values: ["Personal", "Sensitive Personal/Health"]
+          }
+        },
         options: {
           choices: [
             { value: "None", label: "None", riskScore: 1 },
@@ -370,6 +619,7 @@ async function seedRifForm() {
         order: 6,
         maxPoints: 3,
         weightage: 2.5,
+        questionKey: "system_access_required",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 3 },
@@ -383,7 +633,15 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 7,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "system_access_type",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "system_access_required",
+            operator: "EQUALS",
+            value: "Yes"
+          }
+        }
       },
 
       // Section 4: Risk Considerations
@@ -395,6 +653,7 @@ async function seedRifForm() {
         order: 1,
         maxPoints: 2,
         weightage: 1.5,
+        questionKey: "cross_border_transfer",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 2 },
@@ -408,7 +667,15 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 2,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "cross_border_countries",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "cross_border_transfer",
+            operator: "EQUALS",
+            value: "Yes"
+          }
+        }
       },
       {
         sectionIndex: 3,
@@ -416,7 +683,15 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 3,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "hosting_country",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "cross_border_transfer",
+            operator: "EQUALS",
+            value: "Yes"
+          }
+        }
       },
       {
         sectionIndex: 3,
@@ -426,6 +701,7 @@ async function seedRifForm() {
         order: 4,
         maxPoints: 3,
         weightage: 2.0,
+        questionKey: "known_risks",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 3 },
@@ -439,7 +715,15 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 5,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "describe_known_risks",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "known_risks",
+            operator: "EQUALS",
+            value: "Yes"
+          }
+        }
       },
       {
         sectionIndex: 3,
@@ -448,7 +732,8 @@ async function seedRifForm() {
         isRequired: true,
         order: 6,
         maxPoints: 3,
-        weightage: 2.5, // High weightage for business criticality
+        weightage: 2.5,
+        questionKey: "material_disruption",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 3 },
@@ -463,6 +748,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 7,
         maxPoints: 3,
+        questionKey: "customer_impact",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 3 },
@@ -477,6 +763,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 8,
         maxPoints: 2,
+        questionKey: "replacement_difficulty",
         options: {
           choices: [
             { value: "Easy", label: "Easy", riskScore: 1 },
@@ -491,6 +778,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 9,
         maxPoints: 3,
+        questionKey: "critical_records_volume",
         options: {
           choices: [
             { value: "<10,000", label: "Less than 10,000", riskScore: 1 },
@@ -507,6 +795,7 @@ async function seedRifForm() {
         order: 10,
         maxPoints: 3,
         weightage: 2.0,
+        questionKey: "network_access",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 3 },
@@ -521,6 +810,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 11,
         maxPoints: 2,
+        questionKey: "domestic_service",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 1 },
@@ -534,7 +824,15 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 12,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "international_service_desc",
+        conditionalLogic: {
+          showIf: {
+            questionKey: "domestic_service",
+            operator: "EQUALS",
+            value: "No"
+          }
+        }
       },
 
       // Section 5: Compliance & Security
@@ -546,6 +844,7 @@ async function seedRifForm() {
         order: 1,
         maxPoints: 3,
         weightage: 1.5,
+        questionKey: "applicable_frameworks",
         options: {
           choices: [
             { value: "GDPR", label: "GDPR", riskScore: 2 },
@@ -566,7 +865,8 @@ async function seedRifForm() {
         isRequired: false,
         order: 2,
         maxPoints: 3,
-        weightage: 2.0, // This reduces risk (control effectiveness)
+        weightage: 2.0,
+        questionKey: "vendor_certifications",
         options: {
           choices: [
             { value: "ISO 27001", label: "ISO 27001", controlScore: 3 },
@@ -579,7 +879,7 @@ async function seedRifForm() {
         }
       },
 
-      // Section 6: Reputational & Sanctions Screening
+      // Section 6: Reputational & Sanctions Screening (Conditional Section)
       {
         sectionIndex: 5,
         questionText: "Is the third party located in or affiliated with a sanctioned or high-risk country?",
@@ -587,7 +887,8 @@ async function seedRifForm() {
         isRequired: true,
         order: 1,
         maxPoints: 3,
-        weightage: 3.0, // Very high risk
+        weightage: 3.0,
+        questionKey: "sanctioned_country",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 3 },
@@ -603,6 +904,7 @@ async function seedRifForm() {
         order: 2,
         maxPoints: 3,
         weightage: 3.0,
+        questionKey: "sanctions_list",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 3 },
@@ -618,6 +920,7 @@ async function seedRifForm() {
         order: 3,
         maxPoints: 3,
         weightage: 2.0,
+        questionKey: "reputational_risks",
         options: {
           choices: [
             { value: "Yes", label: "Yes", riskScore: 3 },
@@ -633,7 +936,8 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 1,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "supporting_docs"
       },
       {
         sectionIndex: 6,
@@ -641,7 +945,8 @@ async function seedRifForm() {
         questionType: "TEXT",
         isRequired: false,
         order: 2,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "additional_comments"
       },
       {
         sectionIndex: 6,
@@ -649,7 +954,8 @@ async function seedRifForm() {
         questionType: "DATE",
         isRequired: true,
         order: 3,
-        maxPoints: 0
+        maxPoints: 0,
+        questionKey: "completion_timeline"
       },
       {
         sectionIndex: 6,
@@ -658,6 +964,7 @@ async function seedRifForm() {
         isRequired: true,
         order: 4,
         maxPoints: 0,
+        questionKey: "exception_form",
         options: {
           choices: [
             { value: "Yes", label: "Yes, I opt for exception form" },
@@ -675,12 +982,14 @@ async function seedRifForm() {
           formId: rifForm.id,
           sectionId: sections[questionData.sectionIndex].id,
           questionText: questionData.questionText,
-          questionType: questionData.questionType as any, // Cast to RifQuestionType if enum is imported, e.g. as RifQuestionType
+          questionType: questionData.questionType as any,
           options: questionData.options ?? undefined,
           maxPoints: questionData.maxPoints,
           weightage: questionData.weightage || 1.0,
           isRequired: questionData.isRequired,
-          order: questionData.order
+          order: questionData.order,
+          questionKey: questionData.questionKey,
+          conditionalLogic: questionData.conditionalLogic ?? undefined
         }
       })
       totalQuestions++
@@ -689,13 +998,13 @@ async function seedRifForm() {
 
     console.log(`\n🎉 Successfully seeded RIF Form with:`)
     console.log(`   - 1 Form: ${rifForm.title}`)
-    console.log(`   - 7 Sections`)
-    console.log(`   - ${totalQuestions} Questions`)
-    console.log(`\n📊 Risk Scoring Features:`)
-    console.log(`   - Inherent Risk Calculation`)
-    console.log(`   - Control Effectiveness Scoring`)
-    console.log(`   - Weighted Section Scoring`)
-    console.log(`   - NIST-Aligned Risk Assessment`)
+    console.log(`   - 7 Sections (1 conditional)`)
+    console.log(`   - ${totalQuestions} Questions (${questionsData.filter(q => q.conditionalLogic).length} conditional)`)
+    console.log(`\n📊 Conditional Logic Features:`)
+    console.log(`   - Section 6: Conditional based on risk factors`)
+    console.log(`   - Questions with showIf/hideIf logic`)
+    console.log(`   - Question keys for referencing`)
+    console.log(`   - Progressive disclosure support`)
 
   } catch (error) {
     console.error('❌ Error seeding RIF form:', error)

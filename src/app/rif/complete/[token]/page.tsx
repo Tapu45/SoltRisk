@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import React, { useEffect, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { toast } from 'sonner'
-import { 
-  Shield, 
-  Clock, 
-  CheckCircle, 
-  AlertTriangle, 
-  User, 
+import React, { useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import {
+  Shield,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  User,
   Send,
   FileText,
   Save,
@@ -22,13 +22,14 @@ import {
   Eye,
   Calendar,
   Archive,
-  Zap
-} from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { API_ROUTES } from '@/lib/api'
+  Zap,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { API_ROUTES } from "@/lib/api";
+import FloatingParticles from "@/components/animation/floatingparticles";
 
 // Types
 interface Question {
@@ -40,6 +41,8 @@ interface Question {
   isRequired: boolean
   order: number
   sectionId: string
+  questionKey?: string // Add this
+  conditionalLogic?: any // Add this
 }
 
 interface Section {
@@ -48,453 +51,540 @@ interface Section {
   description: string
   order: number
   Questions: Question[]
+  conditionalLogic?: any // Add this
 }
 
 interface UserDetails {
-  fullName: string
-  email: string
-  jobTitle: string
-  department: string
-  organization: string
-}
-
-// REPLACE the FloatingParticles component with this:
-const FloatingParticles = () => {
-  const [isClient, setIsClient] = useState(false)
-  const [dimensions, setDimensions] = useState({ width: 1000, height: 1000 })
-  
-  // Generate stable particles only on client
-  const [particles, setParticles] = useState<Array<{
-    id: number
-    x: number
-    y: number
-    targetX: number
-    targetY: number
-    duration: number
-  }>>([])
-  
-  useEffect(() => {
-    setIsClient(true)
-    
-    // Set dimensions and generate particles only on client side
-    const updateDimensions = () => {
-      const width = window.innerWidth
-      const height = window.innerHeight
-      setDimensions({ width, height })
-      
-      // Generate stable particles with fixed seed-like behavior
-      const newParticles = Array.from({ length: 20 }, (_, i) => ({
-        id: i,
-        x: (i * 123 + 456) % width, // Pseudo-random but deterministic
-        y: (i * 789 + 234) % height,
-        targetX: ((i + 1) * 345 + 678) % width,
-        targetY: ((i + 1) * 567 + 890) % height,
-        duration: 10 + (i % 8) * 2 // Deterministic duration between 10-25
-      }))
-      setParticles(newParticles)
-    }
-    
-    updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
-  }, [])
-  
-  // Don't render anything during SSR
-  if (!isClient) {
-    return null
-  }
-  
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {particles.map((particle) => (
-        <motion.div
-          key={particle.id}
-          className="absolute w-1 h-1 bg-gradient-to-r from-teal-400 to-blue-500 rounded-full opacity-30"
-          initial={{
-            x: particle.x,
-            y: particle.y,
-          }}
-          animate={{
-            x: particle.targetX,
-            y: particle.targetY,
-          }}
-          transition={{
-            duration: particle.duration,
-            repeat: Infinity,
-            repeatType: "reverse",
-            ease: "linear",
-          }}
-        />
-      ))}
-    </div>
-  )
+  fullName: string;
+  email: string;
+  jobTitle: string;
+  department: string;
+  organization: string;
 }
 
 export default function CompleteRifPage() {
-  const params = useParams()
-  const token = params.token as string
-  
+  const params = useParams();
+  const token = params.token as string;
+
   // Form state
-  const [submissionId, setSubmissionId] = useState<string | null>(null)
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [userDetails, setUserDetails] = useState<UserDetails>({
-    fullName: '',
-    email: '',
-    jobTitle: '',
-    department: '',
-    organization: ''
-  })
-  const [allAnswers, setAllAnswers] = useState<{[sectionId: string]: any[]}>({})
-  const [initiation, setInitiation] = useState<any>(null)
-  const [rifForm, setRifForm] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [userDetailsExpanded, setUserDetailsExpanded] = useState(false)
-  const saveTimeouts = useRef<{[key: string]: NodeJS.Timeout}>({})
-  const lastSavedAnswers = useRef<{[key: string]: any}>({})
-  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null)
+    fullName: "",
+    email: "",
+    jobTitle: "",
+    department: "",
+    organization: "",
+  });
+  const [allAnswers, setAllAnswers] = useState<{ [sectionId: string]: any[] }>(
+    {}
+  );
+  const [initiation, setInitiation] = useState<any>(null);
+  const [rifForm, setRifForm] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [userDetailsExpanded, setUserDetailsExpanded] = useState(false);
+  const saveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  const lastSavedAnswers = useRef<{ [key: string]: any }>({});
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
   // Load initiation details and validate token
   useEffect(() => {
-    validateTokenAndLoadData()
-  }, [token])
+    validateTokenAndLoadData();
+  }, [token]);
 
-    // ADD THIS NEW useEffect AFTER EXISTING ONES:
+  // ADD THIS NEW useEffect AFTER EXISTING ONES:
   useEffect(() => {
     return () => {
       // Cleanup timeouts on unmount
-      Object.values(saveTimeouts.current).forEach(timeout => {
-        clearTimeout(timeout)
-      })
-    }
-  }, [])
+      Object.values(saveTimeouts.current).forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+    };
+  }, []);
 
   const validateTokenAndLoadData = async () => {
     try {
-      setLoading(true)
-      
+      setLoading(true);
+
       // Validate token
-      const tokenResponse = await fetch(API_ROUTES.RIF.VALIDATE_TOKEN(token))
+      const tokenResponse = await fetch(API_ROUTES.RIF.VALIDATE_TOKEN(token));
       if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json()
-        throw new Error(errorData.error || 'Invalid or expired token')
+        const errorData = await tokenResponse.json();
+        throw new Error(errorData.error || "Invalid or expired token");
       }
-      const tokenData = await tokenResponse.json()
-      setInitiation(tokenData)
+      const tokenData = await tokenResponse.json();
+      setInitiation(tokenData);
 
       // Pre-fill user details from assignment
       setUserDetails({
-        fullName: tokenData.internalUserName || '',
-        email: tokenData.internalUserEmail || '',
-        department: tokenData.internalUserDept || '',
-        jobTitle: tokenData.internalUserRole || '',
-        organization: ''
-      })
+        fullName: tokenData.internalUserName || "",
+        email: tokenData.internalUserEmail || "",
+        department: tokenData.internalUserDept || "",
+        jobTitle: tokenData.internalUserRole || "",
+        organization: "",
+      });
 
       // Get form structure
-      const formResponse = await fetch(API_ROUTES.RIF.GET_FORM_STRUCTURE)
-      if (!formResponse.ok) throw new Error('Failed to fetch form')
-      const formData = await formResponse.json()
-      setRifForm(formData)
+      const formResponse = await fetch(API_ROUTES.RIF.GET_FORM_STRUCTURE);
+      if (!formResponse.ok) throw new Error("Failed to fetch form");
+      const formData = await formResponse.json();
+      setRifForm(formData);
 
       // Create or get submission
-      await createOrGetSubmission(tokenData.initiationId)
-
+      await createOrGetSubmission(tokenData.initiationId);
     } catch (err: any) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const createOrGetSubmission = async (initiationId: string) => {
     try {
       // Check if submission exists
-      const checkResponse = await fetch(API_ROUTES.RIF.CHECK_SUBMISSION(initiationId))
-      const checkData = await checkResponse.json()
-      
+      const checkResponse = await fetch(
+        API_ROUTES.RIF.CHECK_SUBMISSION(initiationId)
+      );
+      const checkData = await checkResponse.json();
+
       if (checkData.exists) {
-        setSubmissionId(checkData.submissionId)
+        setSubmissionId(checkData.submissionId);
         // Load existing answers if they exist
-        loadExistingAnswers(checkData.submissionId)
+        loadExistingAnswers(checkData.submissionId);
       } else {
         // Create new submission
         const createResponse = await fetch(API_ROUTES.RIF.CREATE_DRAFT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initiationId })
-        })
-        const createData = await createResponse.json()
-        setSubmissionId(createData.submissionId)
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initiationId }),
+        });
+        const createData = await createResponse.json();
+        setSubmissionId(createData.submissionId);
       }
     } catch (error) {
-      console.error('Error creating submission:', error)
-      toast.error('Failed to create submission')
+      console.error("Error creating submission:", error);
+      toast.error("Failed to create submission");
     }
-  }
+  };
 
   const loadExistingAnswers = async (submissionId: string) => {
     try {
-      const response = await fetch(API_ROUTES.RIF.GET_DRAFT(submissionId))
+      const response = await fetch(API_ROUTES.RIF.GET_DRAFT(submissionId));
       if (response.ok) {
-        const draftData = await response.json()
-        
+        const draftData = await response.json();
+
         // Pre-populate answers if they exist
         if (draftData.Answers && draftData.Answers.length > 0) {
-          const answersBySection = draftData.Answers.reduce((acc: any, answer: any) => {
-            const sectionId = answer.Question.sectionId
-            if (!acc[sectionId]) acc[sectionId] = []
-            acc[sectionId].push({
-              questionId: answer.questionId,
-              value: answer.answerValue
-            })
-            return acc
-          }, {})
-          setAllAnswers(answersBySection)
+          const answersBySection = draftData.Answers.reduce(
+            (acc: any, answer: any) => {
+              const sectionId = answer.Question.sectionId;
+              if (!acc[sectionId]) acc[sectionId] = [];
+              acc[sectionId].push({
+                questionId: answer.questionId,
+                value: answer.answerValue,
+              });
+              return acc;
+            },
+            {}
+          );
+          setAllAnswers(answersBySection);
         }
       }
     } catch (error) {
-      console.error('Error loading existing answers:', error)
+      console.error("Error loading existing answers:", error);
+    }
+  };
+
+  const evaluateCondition = (condition: any, allAnswers: any): boolean => {
+  if (!condition) return true;
+
+  const { questionKey, operator, value, values } = condition;
+
+  // Find the answer for this question key
+  const answer = findAnswerByQuestionKey(questionKey, allAnswers);
+  let answerValue = answer?.value;
+
+  // Handle boolean conversion for "Yes"/"No" values
+  if (answerValue === "true" || answerValue === "Yes") {
+    answerValue = "Yes";
+  } else if (answerValue === "false" || answerValue === "No") {
+    answerValue = "No";
+  }
+
+  console.log(`🔍 Evaluating condition:`, {
+    questionKey,
+    operator,
+    expectedValue: value,
+    actualValue: answerValue,
+    rawAnswer: answer
+  });
+
+  switch (operator) {
+    case "EQUALS":
+      return answerValue === value;
+
+    case "IN":
+      return values?.includes(answerValue);
+
+    case "INCLUDES":
+      if (Array.isArray(answerValue)) {
+        return answerValue.includes(value);
+      }
+      return answerValue === value;
+
+    case "INCLUDES_ANY":
+      if (Array.isArray(answerValue)) {
+        return values?.some((v: string) => answerValue.includes(v));
+      }
+      return values?.includes(answerValue);
+
+    default:
+      console.log(`❌ Unknown operator: ${operator}`);
+      return true;
+  }
+};
+
+ const evaluateConditionalLogic = (
+  conditionalLogic: any,
+  allAnswers: any
+): boolean => {
+  if (!conditionalLogic) return true;
+
+  const { showIf, hideIf } = conditionalLogic;
+
+  if (showIf) {
+    const shouldShow = evaluateConditions(showIf, allAnswers);
+    console.log(`📋 ShowIf result: ${shouldShow}`, { showIf, allAnswers });
+    return shouldShow;
+  }
+
+  if (hideIf) {
+    const shouldHide = evaluateConditions(hideIf, allAnswers);
+    console.log(`🚫 HideIf result: ${shouldHide}`, { hideIf, allAnswers });
+    return !shouldHide;
+  }
+
+  return true;
+};
+
+ const evaluateConditions = (logic: any, allAnswers: any): boolean => {
+  if (!logic) return true;
+
+  const { operator, conditions, questionKey } = logic;
+
+  // Single condition
+  if (questionKey) {
+    return evaluateCondition(logic, allAnswers);
+  }
+
+  // Multiple conditions
+  if (conditions && Array.isArray(conditions)) {
+    switch (operator) {
+      case "AND":
+        return conditions.every((condition) =>
+          evaluateConditions(condition, allAnswers)
+        );
+      case "OR":
+        return conditions.some((condition) =>
+          evaluateConditions(condition, allAnswers)
+        );
+      default:
+        return true;
     }
   }
 
- const saveAnswers = async (answers: any[], sectionId: string) => {
-    if (!submissionId) return
+  return true;
+};
+
+  const findAnswerByQuestionKey = (
+    questionKey: string,
+    allAnswers: any
+  ): any => {
+    for (const sectionId in allAnswers) {
+      const sectionAnswers = allAnswers[sectionId] || [];
+      for (const answer of sectionAnswers) {
+        // We need to match by questionKey, but first we need to get the question
+        const question = rifForm?.Sections?.flatMap(
+          (s: Section) => s.Questions
+        )?.find((q: Question) => q.id === answer.questionId);
+
+        if (question?.questionKey === questionKey) {
+          return answer;
+        }
+      }
+    }
+    return null;
+  };
+
+  const saveAnswers = async (answers: any[], sectionId: string) => {
+    if (!submissionId) return;
 
     try {
-      setSaving(true)
-      
+      setSaving(true);
+
       // Enhance answers with question details for proper scoring
-      const enhancedAnswers = answers.map(answer => {
-        const question = rifForm?.Sections
-          ?.find((s: Section) => s.id === sectionId)
-          ?.Questions?.find((q: Question) => q.id === answer.questionId)
-        
+      const enhancedAnswers = answers.map((answer) => {
+        const question = rifForm?.Sections?.find(
+          (s: Section) => s.id === sectionId
+        )?.Questions?.find((q: Question) => q.id === answer.questionId);
+
         return {
           ...answer,
           questionType: question?.questionType,
           questionOptions: question?.questionOptions || question?.options, // ← ADD THIS!
           isRequired: question?.isRequired,
           maxPoints: question?.maxPoints || 0,
-          weightage: question?.weightage || 1.0
-        }
-      })
-      
+          weightage: question?.weightage || 1.0,
+        };
+      });
+
       const response = await fetch(API_ROUTES.RIF.SAVE_ANSWERS, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           submissionId,
           answers: enhancedAnswers, // ← Send enhanced answers with questionOptions
           sectionId,
-          submittedBy: userDetails.fullName
-        })
-      })
-      
+          submittedBy: userDetails.fullName,
+        }),
+      });
+
       if (response.ok) {
-        setLastSavedTime(new Date())
+        setLastSavedTime(new Date());
       }
     } catch (error) {
-      console.error('Error saving answers:', error)
-      toast.error('Failed to save progress')
+      console.error("Error saving answers:", error);
+      toast.error("Failed to save progress");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   // Submit final form
   const submitForm = async () => {
-    if (!submissionId) return
+    if (!submissionId) return;
 
     try {
-      setSubmitting(true)
+      setSubmitting(true);
       const response = await fetch(API_ROUTES.RIF.SUBMIT_FORM, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           submissionId,
-          clientComments: '',
-          submittedBy: userDetails.fullName
-        })
-      })
-      
+          clientComments: "",
+          submittedBy: userDetails.fullName,
+        }),
+      });
+
       if (response.ok) {
-        const result = await response.json()
-        toast.success('RIF Assessment submitted successfully!')
-        setIsSubmitted(true)
+        const result = await response.json();
+        toast.success("RIF Assessment submitted successfully!");
+        setIsSubmitted(true);
       } else {
-        throw new Error('Failed to submit form')
+        throw new Error("Failed to submit form");
       }
     } catch (error) {
-      console.error('Error submitting form:', error)
-      toast.error('Failed to submit form')
+      console.error("Error submitting form:", error);
+      toast.error("Failed to submit form");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
-   // REPLACE THE EXISTING handleAnswerChange FUNCTION WITH THIS:
-  const handleAnswerChange = (sectionId: string, questionId: string, value: any) => {
-    const saveKey = `${sectionId}_${questionId}`
-    
+  // REPLACE THE EXISTING handleAnswerChange FUNCTION WITH THIS:
+  const handleAnswerChange = (
+    sectionId: string,
+    questionId: string,
+    value: any
+  ) => {
+    const saveKey = `${sectionId}_${questionId}`;
+
     // Update UI immediately (optimistic update)
-    setAllAnswers(prev => {
-      const sectionAnswers = prev[sectionId] || []
-      const existing = sectionAnswers.find(a => a.questionId === questionId)
-      
-      let newSectionAnswers
+    setAllAnswers((prev) => {
+      const sectionAnswers = prev[sectionId] || [];
+      const existing = sectionAnswers.find((a) => a.questionId === questionId);
+
+      let newSectionAnswers;
       if (existing) {
-        newSectionAnswers = sectionAnswers.map(a => 
+        newSectionAnswers = sectionAnswers.map((a) =>
           a.questionId === questionId ? { ...a, value } : a
-        )
+        );
       } else {
-        newSectionAnswers = [...sectionAnswers, { questionId, value }]
+        newSectionAnswers = [...sectionAnswers, { questionId, value }];
       }
-      
+
       return {
         ...prev,
-        [sectionId]: newSectionAnswers
-      }
-    })
-    
+        [sectionId]: newSectionAnswers,
+      };
+    });
+
     // Clear existing timeout for this specific question
     if (saveTimeouts.current[saveKey]) {
-      clearTimeout(saveTimeouts.current[saveKey])
+      clearTimeout(saveTimeouts.current[saveKey]);
     }
-    
+
     // Check if value actually changed
     if (lastSavedAnswers.current[saveKey] === value) {
-      return // Don't save if value hasn't changed
+      return; // Don't save if value hasn't changed
     }
-    
+
     // Set new debounced timeout
     saveTimeouts.current[saveKey] = setTimeout(async () => {
-      const answerToSave = [{ questionId, value }]
-      await saveAnswers(answerToSave, sectionId)
-      lastSavedAnswers.current[saveKey] = value
-      delete saveTimeouts.current[saveKey]
-    }, 2000)
-  }
+      const answerToSave = [{ questionId, value }];
+      await saveAnswers(answerToSave, sectionId);
+      lastSavedAnswers.current[saveKey] = value;
+      delete saveTimeouts.current[saveKey];
+    }, 2000);
+  };
 
   const handleUserDetailsChange = (field: keyof UserDetails, value: string) => {
-    setUserDetails(prev => ({
+    setUserDetails((prev) => ({
       ...prev,
-      [field]: value
-    }))
-  }
+      [field]: value,
+    }));
+  };
 
   const isUserDetailsComplete = () => {
-    return userDetails.fullName && 
-           userDetails.email && 
-           userDetails.jobTitle && 
-           userDetails.department && 
-           userDetails.organization
-  }
+    return (
+      userDetails.fullName &&
+      userDetails.email &&
+      userDetails.jobTitle &&
+      userDetails.department &&
+      userDetails.organization
+    );
+  };
 
   const isSectionComplete = (section: Section) => {
-    // Section 1 is always complete (filled by admin)
-    if (section.order === 1) {
-      return true
-    }
-    
-    const sectionAnswers = allAnswers[section.id] || []
-    const requiredQuestions = section.Questions.filter((q: Question) => q.isRequired)
-    
-    // Check if all required questions have valid answers
-    const answeredRequired = requiredQuestions.filter(question => {
-      const answer = sectionAnswers.find(a => a.questionId === question.id)
-      if (!answer) return false
-      
-      // Check if answer has valid value based on question type
-      const value = answer.value
-      if (value === null || value === undefined || value === '') return false
-      
-      // For arrays (multiple choice), check if at least one option is selected
-      if (Array.isArray(value) && value.length === 0) return false
-      
-      return true
-    })
-    
-    return answeredRequired.length === requiredQuestions.length
+  // Section 1 is always complete (filled by admin)
+  if (section.order === 1) {
+    return true
   }
+  
+  // Check if section should be shown
+  if (!evaluateConditionalLogic(section.conditionalLogic, allAnswers)) {
+    return true // Hidden sections are considered "complete"
+  }
+  
+  const sectionAnswers = allAnswers[section.id] || []
+  
+  // Filter questions based on conditional logic
+  const visibleRequiredQuestions = section.Questions.filter((q: Question) => {
+    return q.isRequired && evaluateConditionalLogic(q.conditionalLogic, allAnswers)
+  })
+  
+  // Check if all visible required questions have valid answers
+  const answeredRequired = visibleRequiredQuestions.filter(question => {
+    const answer = sectionAnswers.find(a => a.questionId === question.id)
+    if (!answer) return false
+    
+    // Check if answer has valid value based on question type
+    const value = answer.value
+    if (value === null || value === undefined || value === '') return false
+    
+    // For arrays (multiple choice), check if at least one option is selected
+    if (Array.isArray(value) && value.length === 0) return false
+    
+    return true
+  })
+  
+  return answeredRequired.length === visibleRequiredQuestions.length
+}
 
   const getOverallProgress = () => {
-    if (!rifForm?.Sections) return 0
-    
-    let totalSections = 0
-    let completedSections = 0
-    
-    // Check each section completion
-    rifForm.Sections.forEach((section: Section) => {
+  if (!rifForm?.Sections) return 0
+  
+  let totalSections = 0
+  let completedSections = 0
+  
+  // Check each section completion
+  rifForm.Sections.forEach((section: Section) => {
+    // Only count sections that should be visible
+    if (section.order === 1 || evaluateConditionalLogic(section.conditionalLogic, allAnswers)) {
       totalSections++
       if (isSectionComplete(section)) {
         completedSections++
       }
-    })
-    
-    // Check user details completion
-    const userDetailsComplete = isUserDetailsComplete() ? 1 : 0
-    
-    // Total progress = (completed sections + user details) / (total sections + 1 for user details)
-    // Cap at 100%
-    const progress = ((completedSections + userDetailsComplete) / (totalSections + 1)) * 100
-    return Math.min(Math.round(progress), 100)
-  }
+    }
+  })
+  
+  // Check user details completion
+  const userDetailsComplete = isUserDetailsComplete() ? 1 : 0
+  
+  // Total progress = (completed sections + user details) / (total sections + 1 for user details)
+  const progress = ((completedSections + userDetailsComplete) / (totalSections + 1)) * 100
+  return Math.min(Math.round(progress), 100)
+}
 
   const renderQuestion = (question: Question, sectionId: string) => {
-    const sectionAnswers = allAnswers[sectionId] || []
-    const currentAnswer = sectionAnswers.find(a => a.questionId === question.id)?.value || ''
+
+     const shouldRender = evaluateConditionalLogic(question.conditionalLogic, allAnswers);
+  if (!shouldRender) {
+    console.log(`❌ Not rendering question: ${question.questionText}`);
+    return null;
+  }
+    const sectionAnswers = allAnswers[sectionId] || [];
+    const currentAnswer =
+      sectionAnswers.find((a) => a.questionId === question.id)?.value || "";
 
     const getQuestionWidth = (questionType: string) => {
       switch (questionType) {
-        case 'TEXTAREA':
-          return 'col-span-full' // Full width for textarea
-        case 'TEXT':
-        case 'DATE':
-          return 'lg:col-span-1 col-span-full' // Half width for text inputs on large screens
-        case 'SINGLE_CHOICE':
-        case 'MULTIPLE_CHOICE':
-        case 'BOOLEAN':
-          return 'col-span-full' // Full width for choice questions
-        case 'DROPDOWN':
-          return 'lg:col-span-1 col-span-full' // Half width for dropdowns on large screens
+        case "TEXTAREA":
+          return "col-span-full"; // Full width for textarea
+        case "TEXT":
+        case "DATE":
+          return "lg:col-span-1 col-span-full"; // Half width for text inputs on large screens
+        case "SINGLE_CHOICE":
+        case "MULTIPLE_CHOICE":
+        case "BOOLEAN":
+          return "col-span-full"; // Full width for choice questions
+        case "DROPDOWN":
+          return "lg:col-span-1 col-span-full"; // Half width for dropdowns on large screens
         default:
-          return 'lg:col-span-1 col-span-full'
+          return "lg:col-span-1 col-span-full";
       }
-    }
+    };
 
     const renderInput = () => {
       switch (question.questionType) {
-        case 'TEXT':
+        case "TEXT":
           return (
             <Input
               value={currentAnswer}
-              onChange={(e) => handleAnswerChange(sectionId, question.id, e.target.value)}
+              onChange={(e) =>
+                handleAnswerChange(sectionId, question.id, e.target.value)
+              }
               placeholder="Enter your answer"
               className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
-          )
+          );
 
-        case 'TEXTAREA':
+        case "TEXTAREA":
           return (
             <textarea
               value={currentAnswer}
-              onChange={(e) => handleAnswerChange(sectionId, question.id, e.target.value)}
+              onChange={(e) =>
+                handleAnswerChange(sectionId, question.id, e.target.value)
+              }
               rows={4}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-vertical"
               placeholder="Enter your detailed answer"
             />
-          )
+          );
 
-        case 'SINGLE_CHOICE':
-          const singleChoices = question.questionOptions?.choices || question.options?.choices || []
+        case "SINGLE_CHOICE":
+          const singleChoices =
+            question.questionOptions?.choices ||
+            question.options?.choices ||
+            [];
           return (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {singleChoices.map((choice: any) => (
-                <motion.label 
-                  key={choice.value} 
+                <motion.label
+                  key={choice.value}
                   className="flex items-center group cursor-pointer bg-gray-50 hover:bg-teal-50 p-3 rounded-lg border border-gray-200 hover:border-teal-300 transition-all duration-200"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -504,7 +594,9 @@ export default function CompleteRifPage() {
                     name={question.id}
                     value={choice.value}
                     checked={currentAnswer === choice.value}
-                    onChange={(e) => handleAnswerChange(sectionId, question.id, e.target.value)}
+                    onChange={(e) =>
+                      handleAnswerChange(sectionId, question.id, e.target.value)
+                    }
                     className="mr-3 text-teal-600 focus:ring-teal-500"
                   />
                   <span className="text-sm text-gray-700 group-hover:text-teal-700 transition-colors font-medium">
@@ -513,16 +605,21 @@ export default function CompleteRifPage() {
                 </motion.label>
               ))}
             </div>
-          )
+          );
 
-        case 'MULTIPLE_CHOICE':
-          const selectedValues = Array.isArray(currentAnswer) ? currentAnswer : []
-          const multipleChoices = question.questionOptions?.choices || question.options?.choices || []
+        case "MULTIPLE_CHOICE":
+          const selectedValues = Array.isArray(currentAnswer)
+            ? currentAnswer
+            : [];
+          const multipleChoices =
+            question.questionOptions?.choices ||
+            question.options?.choices ||
+            [];
           return (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {multipleChoices.map((choice: any) => (
-                <motion.label 
-                  key={choice.value} 
+                <motion.label
+                  key={choice.value}
                   className="flex items-center group cursor-pointer bg-gray-50 hover:bg-teal-50 p-3 rounded-lg border border-gray-200 hover:border-teal-300 transition-all duration-200"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -534,8 +631,8 @@ export default function CompleteRifPage() {
                     onChange={(e) => {
                       const newValues = e.target.checked
                         ? [...selectedValues, choice.value]
-                        : selectedValues.filter(v => v !== choice.value)
-                      handleAnswerChange(sectionId, question.id, newValues)
+                        : selectedValues.filter((v) => v !== choice.value);
+                      handleAnswerChange(sectionId, question.id, newValues);
                     }}
                     className="mr-3 text-teal-600 focus:ring-teal-500"
                   />
@@ -545,14 +642,19 @@ export default function CompleteRifPage() {
                 </motion.label>
               ))}
             </div>
-          )
+          );
 
-        case 'DROPDOWN':
-          const dropdownChoices = question.questionOptions?.choices || question.options?.choices || []
+        case "DROPDOWN":
+          const dropdownChoices =
+            question.questionOptions?.choices ||
+            question.options?.choices ||
+            [];
           return (
             <select
               value={currentAnswer}
-              onChange={(e) => handleAnswerChange(sectionId, question.id, e.target.value)}
+              onChange={(e) =>
+                handleAnswerChange(sectionId, question.id, e.target.value)
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
             >
               <option value="">Select an option</option>
@@ -562,22 +664,24 @@ export default function CompleteRifPage() {
                 </option>
               ))}
             </select>
-          )
+          );
 
-        case 'DATE':
+        case "DATE":
           return (
             <Input
               type="date"
               value={currentAnswer}
-              onChange={(e) => handleAnswerChange(sectionId, question.id, e.target.value)}
+              onChange={(e) =>
+                handleAnswerChange(sectionId, question.id, e.target.value)
+              }
               className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
-          )
+          );
 
-        case 'BOOLEAN':
+        case "BOOLEAN":
           return (
             <div className="flex flex-wrap gap-4">
-              <motion.label 
+              <motion.label
                 className="flex items-center group cursor-pointer bg-gray-50 hover:bg-green-50 p-3 rounded-lg border border-gray-200 hover:border-green-300 transition-all duration-200 min-w-[120px]"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -586,15 +690,17 @@ export default function CompleteRifPage() {
                   type="radio"
                   name={question.id}
                   value="true"
-                  checked={currentAnswer === 'true'}
-                  onChange={(e) => handleAnswerChange(sectionId, question.id, e.target.value)}
+                  checked={currentAnswer === "true"}
+                  onChange={(e) =>
+                    handleAnswerChange(sectionId, question.id, e.target.value)
+                  }
                   className="mr-2 text-green-600 focus:ring-green-500"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-green-700 transition-colors font-medium">
                   ✓ Yes
                 </span>
               </motion.label>
-              <motion.label 
+              <motion.label
                 className="flex items-center group cursor-pointer bg-gray-50 hover:bg-red-50 p-3 rounded-lg border border-gray-200 hover:border-red-300 transition-all duration-200 min-w-[120px]"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -603,8 +709,10 @@ export default function CompleteRifPage() {
                   type="radio"
                   name={question.id}
                   value="false"
-                  checked={currentAnswer === 'false'}
-                  onChange={(e) => handleAnswerChange(sectionId, question.id, e.target.value)}
+                  checked={currentAnswer === "false"}
+                  onChange={(e) =>
+                    handleAnswerChange(sectionId, question.id, e.target.value)
+                  }
                   className="mr-2 text-red-600 focus:ring-red-500"
                 />
                 <span className="text-sm text-gray-700 group-hover:text-red-700 transition-colors font-medium">
@@ -612,19 +720,21 @@ export default function CompleteRifPage() {
                 </span>
               </motion.label>
             </div>
-          )
+          );
 
         default:
           return (
             <Input
               value={currentAnswer}
-              onChange={(e) => handleAnswerChange(sectionId, question.id, e.target.value)}
+              onChange={(e) =>
+                handleAnswerChange(sectionId, question.id, e.target.value)
+              }
               placeholder="Enter your answer"
               className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
             />
-          )
+          );
       }
-    }
+    };
 
     return (
       <motion.div
@@ -640,8 +750,8 @@ export default function CompleteRifPage() {
         </label>
         {renderInput()}
       </motion.div>
-    )
-  }
+    );
+  };
 
   if (loading) {
     return (
@@ -662,7 +772,7 @@ export default function CompleteRifPage() {
           </div>
         </motion.div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -676,27 +786,30 @@ export default function CompleteRifPage() {
             className="text-center max-w-md mx-auto p-8"
           >
             <motion.div
-              animate={{ 
+              animate={{
                 rotate: [0, 10, -10, 0],
-                scale: [1, 1.1, 1]
+                scale: [1, 1.1, 1],
               }}
-              transition={{ 
+              transition={{
                 duration: 2,
                 repeat: Infinity,
-                ease: "easeInOut"
+                ease: "easeInOut",
               }}
             >
               <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             </motion.div>
-            <h1 className="text-2xl font-bold text-red-700 mb-2">Access Denied</h1>
+            <h1 className="text-2xl font-bold text-red-700 mb-2">
+              Access Denied
+            </h1>
             <p className="text-red-600 mb-4">{error}</p>
             <p className="text-sm text-gray-600">
-              This link may have expired or is invalid. Please contact the administrator for a new link.
+              This link may have expired or is invalid. Please contact the
+              administrator for a new link.
             </p>
           </motion.div>
         </div>
       </div>
-    )
+    );
   }
 
   // Success state
@@ -722,7 +835,9 @@ export default function CompleteRifPage() {
               Assessment Submitted!
             </h1>
             <p className="text-green-600 mb-6">
-              Your RIF assessment for <strong>{initiation?.vendorName || 'Third Party'}</strong> has been submitted successfully.
+              Your RIF assessment for{" "}
+              <strong>{initiation?.vendorName || "Third Party"}</strong> has
+              been submitted successfully.
             </p>
             <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-lg">
               <CardContent className="p-4">
@@ -747,24 +862,28 @@ export default function CompleteRifPage() {
               </CardContent>
             </Card>
             <p className="text-sm text-gray-600 mt-6">
-              You can now close this window. Thank you for completing the assessment!
+              You can now close this window. Thank you for completing the
+              assessment!
             </p>
           </motion.div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/40 relative overflow-hidden">
       <FloatingParticles />
-      
+
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-[0.02]">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(circle at 1px 1px, rgb(15 23 42) 1px, transparent 0)`,
-          backgroundSize: '40px 40px'
-        }} />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgb(15 23 42) 1px, transparent 0)`,
+            backgroundSize: "40px 40px",
+          }}
+        />
       </div>
 
       <div className="relative z-10">
@@ -790,11 +909,12 @@ export default function CompleteRifPage() {
                     Risk Intake Form Assessment
                   </h1>
                   <p className="text-gray-600">
-                    Third Party: <strong>{initiation?.vendorName || 'Assessment'}</strong>
+                    Third Party:{" "}
+                    <strong>{initiation?.vendorName || "Assessment"}</strong>
                   </p>
                 </div>
               </motion.div>
-              
+
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -808,7 +928,11 @@ export default function CompleteRifPage() {
                       {Math.round(getOverallProgress())}% Complete
                     </div>
                     <div className="text-xs text-gray-500">
-                        {saving ? 'Saving...' : lastSavedTime ? `Saved ${lastSavedTime.toLocaleTimeString()}` : 'Not saved yet'}
+                      {saving
+                        ? "Saving..."
+                        : lastSavedTime
+                        ? `Saved ${lastSavedTime.toLocaleTimeString()}`
+                        : "Not saved yet"}
                     </div>
                   </div>
                   <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -823,9 +947,13 @@ export default function CompleteRifPage() {
 
                 {/* Token expiry warning */}
                 {initiation?.tokenExpiry && (
-                  <Badge variant="outline" className="border-orange-200 text-orange-700 bg-orange-50">
+                  <Badge
+                    variant="outline"
+                    className="border-orange-200 text-orange-700 bg-orange-50"
+                  >
                     <Clock className="w-3 h-3 mr-1" />
-                    Expires: {new Date(initiation.tokenExpiry).toLocaleDateString()}
+                    Expires:{" "}
+                    {new Date(initiation.tokenExpiry).toLocaleDateString()}
                   </Badge>
                 )}
               </motion.div>
@@ -842,7 +970,7 @@ export default function CompleteRifPage() {
               transition={{ delay: 0.1 }}
             >
               <Card className="border-0 bg-white/70 backdrop-blur-sm shadow-lg">
-                <CardHeader 
+                <CardHeader
                   className="cursor-pointer"
                   onClick={() => setUserDetailsExpanded(!userDetailsExpanded)}
                 >
@@ -867,12 +995,12 @@ export default function CompleteRifPage() {
                     </motion.div>
                   </div>
                 </CardHeader>
-                
+
                 <AnimatePresence>
                   {userDetailsExpanded && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
+                      animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3 }}
                     >
@@ -890,7 +1018,12 @@ export default function CompleteRifPage() {
                             </label>
                             <Input
                               value={userDetails.fullName}
-                              onChange={(e) => handleUserDetailsChange('fullName', e.target.value)}
+                              onChange={(e) =>
+                                handleUserDetailsChange(
+                                  "fullName",
+                                  e.target.value
+                                )
+                              }
                               placeholder="John Doe"
                               className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
@@ -909,7 +1042,9 @@ export default function CompleteRifPage() {
                             <Input
                               type="email"
                               value={userDetails.email}
-                              onChange={(e) => handleUserDetailsChange('email', e.target.value)}
+                              onChange={(e) =>
+                                handleUserDetailsChange("email", e.target.value)
+                              }
                               placeholder="john.doe@company.com"
                               className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
@@ -927,7 +1062,12 @@ export default function CompleteRifPage() {
                             </label>
                             <Input
                               value={userDetails.jobTitle}
-                              onChange={(e) => handleUserDetailsChange('jobTitle', e.target.value)}
+                              onChange={(e) =>
+                                handleUserDetailsChange(
+                                  "jobTitle",
+                                  e.target.value
+                                )
+                              }
                               placeholder="Risk Analyst"
                               className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
@@ -945,7 +1085,12 @@ export default function CompleteRifPage() {
                             </label>
                             <Input
                               value={userDetails.department}
-                              onChange={(e) => handleUserDetailsChange('department', e.target.value)}
+                              onChange={(e) =>
+                                handleUserDetailsChange(
+                                  "department",
+                                  e.target.value
+                                )
+                              }
                               placeholder="IT Security"
                               className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
@@ -963,7 +1108,12 @@ export default function CompleteRifPage() {
                             </label>
                             <Input
                               value={userDetails.organization}
-                              onChange={(e) => handleUserDetailsChange('organization', e.target.value)}
+                              onChange={(e) =>
+                                handleUserDetailsChange(
+                                  "organization",
+                                  e.target.value
+                                )
+                              }
                               placeholder="Your Company Name"
                               className="focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
@@ -994,75 +1144,90 @@ export default function CompleteRifPage() {
                     </Badge>
                   </CardTitle>
                   <p className="text-gray-600">
-                    This section was completed by {initiation?.assignedBy}. Review the information below.
+                    This section was completed by {initiation?.assignedBy}.
+                    Review the information below.
                   </p>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {initiation?.section1Data?.map((answer: any, index: number) => (
-                      <motion.div 
-                        key={index}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="bg-gradient-to-r from-gray-50 to-blue-50/50 rounded-lg p-4 border border-gray-200"
-                      >
-                        <p className="text-sm font-medium text-gray-600 mb-2">
-                          Response {index + 1}
-                        </p>
-                        <p className="text-gray-900 font-medium">
-                          {Array.isArray(answer.value) ? answer.value.join(', ') : answer.value}
-                        </p>
-                      </motion.div>
-                    ))}
+                    {initiation?.section1Data?.map(
+                      (answer: any, index: number) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="bg-gradient-to-r from-gray-50 to-blue-50/50 rounded-lg p-4 border border-gray-200"
+                        >
+                          <p className="text-sm font-medium text-gray-600 mb-2">
+                            Response {index + 1}
+                          </p>
+                          <p className="text-gray-900 font-medium">
+                            {Array.isArray(answer.value)
+                              ? answer.value.join(", ")
+                              : answer.value}
+                          </p>
+                        </motion.div>
+                      )
+                    )}
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
-            {/* Assessment Sections */}
-            {rifForm?.Sections
-              ?.filter((section: Section) => section.order > 1)
-              ?.sort((a: Section, b: Section) => a.order - b.order)
-              ?.map((section: Section, index: number) => (
-                <motion.div
-                  key={section.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + index * 0.1 }}
-                >
-                  <Card className="border-0 bg-white/70 backdrop-blur-sm shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
-                          <FileText className="h-5 w-5 text-white" />
-                        </div>
-                        Section {section.order}: {section.title}
-                        {isSectionComplete(section) && (
-                          <Badge className="bg-green-100 text-green-700 border-green-200">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Complete
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      {section.description && (
-                        <p className="text-gray-600">{section.description}</p>
-                      )}
-                    </CardHeader>
-                                       <CardContent>
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {section.Questions
-                          ?.sort((a: Question, b: Question) => a.order - b.order)
-                          ?.map((question: Question, qIndex: number) => (
-                            <div key={question.id}> {/* ADD THIS WRAPPER WITH KEY */}
-                              {renderQuestion(question, section.id)}
-                            </div>
-                          ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+           {rifForm?.Sections
+  ?.filter((section: Section) => section.order > 1)
+  ?.filter((section: Section) => {
+    // Check if section should be shown based on conditional logic
+    return evaluateConditionalLogic(section.conditionalLogic, allAnswers)
+  })
+  ?.sort((a: Section, b: Section) => a.order - b.order)
+  ?.map((section: Section, index: number) => (
+    <motion.div
+      key={section.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 + index * 0.1 }}
+    >
+      <Card className="border-0 bg-white/70 backdrop-blur-sm shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center">
+              <FileText className="h-5 w-5 text-white" />
+            </div>
+            Section {section.order}: {section.title}
+            {isSectionComplete(section) && (
+              <Badge className="bg-green-100 text-green-700 border-green-200">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Complete
+              </Badge>
+            )}
+          </CardTitle>
+          {section.description && (
+            <p className="text-gray-600">{section.description}</p>
+          )}
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {section.Questions
+              ?.sort((a: Question, b: Question) => a.order - b.order)
+              ?.map((question: Question, qIndex: number) => {
+                // Check if question should be rendered
+                const shouldRender = evaluateConditionalLogic(question.conditionalLogic, allAnswers)
+                if (!shouldRender) return null
+                
+                return (
+                  <div key={question.id}>
+                    {renderQuestion(question, section.id)}
+                  </div>
+                )
+              })
+              ?.filter(Boolean)} {/* Filter out null values */}
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
+  ))}
 
             {/* Submit Section */}
             <motion.div
@@ -1076,37 +1241,38 @@ export default function CompleteRifPage() {
                   <div className="flex items-center justify-between text-white">
                     <div className="flex items-center gap-4">
                       <motion.div
-                        animate={{ 
+                        animate={{
                           scale: [1, 1.1, 1],
-                          rotate: [0, 5, -5, 0]
+                          rotate: [0, 5, -5, 0],
                         }}
-                        transition={{ 
+                        transition={{
                           duration: 2,
                           repeat: Infinity,
-                          ease: "easeInOut"
+                          ease: "easeInOut",
                         }}
                         className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center"
                       >
                         <Target className="h-6 w-6" />
                       </motion.div>
                       <div>
-                        <h3 className="text-lg font-semibold">Ready to Submit?</h3>
+                        <h3 className="text-lg font-semibold">
+                          Ready to Submit?
+                        </h3>
                         <p className="text-blue-100 text-sm">
-                          Complete all required sections to submit your assessment
+                          Complete all required sections to submit your
+                          assessment
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-4">
                       <div className="text-right">
                         <div className="text-lg font-bold">
                           {Math.round(getOverallProgress())}%
                         </div>
-                        <div className="text-xs text-blue-100">
-                          Progress
-                        </div>
+                        <div className="text-xs text-blue-100">Progress</div>
                       </div>
-                      
+
                       <motion.div
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -1119,7 +1285,11 @@ export default function CompleteRifPage() {
                           {submitting && (
                             <motion.div
                               animate={{ rotate: 360 }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                              transition={{
+                                duration: 1,
+                                repeat: Infinity,
+                                ease: "linear",
+                              }}
                               className="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full mr-2"
                             />
                           )}
@@ -1144,16 +1314,27 @@ export default function CompleteRifPage() {
             <div className="flex items-center justify-center gap-6 flex-wrap">
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
-                <span>Assigned by: <strong>{initiation?.assignedBy}</strong></span>
+                <span>
+                  Assigned by: <strong>{initiation?.assignedBy}</strong>
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
-                <span>Due: <strong>{initiation?.dueDate ? new Date(initiation.dueDate).toLocaleDateString() : 'Not set'}</strong></span>
+                <span>
+                  Due:{" "}
+                  <strong>
+                    {initiation?.dueDate
+                      ? new Date(initiation.dueDate).toLocaleDateString()
+                      : "Not set"}
+                  </strong>
+                </span>
               </div>
               {initiation?.assignmentComments && (
                 <div className="flex items-center gap-2">
                   <Archive className="w-4 h-4" />
-                  <span className="italic">"{initiation.assignmentComments}"</span>
+                  <span className="italic">
+                    "{initiation.assignmentComments}"
+                  </span>
                 </div>
               )}
             </div>
@@ -1161,5 +1342,5 @@ export default function CompleteRifPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

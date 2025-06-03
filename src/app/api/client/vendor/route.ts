@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { RiskLevel } from '@/generated/prisma'
-import { sendRifAssignmentEmail } from '@/service/email'
+import { sendRifAssignmentEmail, sendRifReviewNotificationEmail } from '@/service/email'
 import { v4 as uuidv4 } from 'uuid'
 
 // ============================================================================
@@ -259,159 +259,159 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ initiations })
         }
 
-       if (action === 'submission-details' && submissionId) {
-    const submission = await prisma.rifSubmission.findUnique({
-        where: { id: submissionId },
-        include: {
-            Answers: {
+        if (action === 'submission-details' && submissionId) {
+            const submission = await prisma.rifSubmission.findUnique({
+                where: { id: submissionId },
                 include: {
-                    Question: {
+                    Answers: {
                         include: {
-                            Section: true
-                        }
-                    }
-                }
-            },
-            Form: {
-                include: {
-                    Sections: {
-                        orderBy: { order: 'asc' },
-                        include: {
-                            Questions: {
-                                orderBy: { order: 'asc' }
+                            Question: {
+                                include: {
+                                    Section: true
+                                }
                             }
                         }
-                    }
-                }
-            },
-            Initiation: {
-                include: {
-                    Vendor: {
+                    },
+                    Form: {
                         include: {
-                            User: true
+                            Sections: {
+                                orderBy: { order: 'asc' },
+                                include: {
+                                    Questions: {
+                                        orderBy: { order: 'asc' }
+                                    }
+                                }
+                            }
                         }
+                    },
+                    Initiation: {
+                        include: {
+                            Vendor: {
+                                include: {
+                                    User: true
+                                }
+                            }
+                        }
+                    },
+                    RiskAssessment: true
+                }
+            })
+
+            if (!submission) {
+                return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
+            }
+
+            // Group answers by section (for sections 2-7)
+            const answersBySection = submission.Answers.reduce((acc: any, answer: any) => {
+                const sectionId = answer.Question.sectionId
+                const sectionTitle = answer.Question.Section.title
+                const sectionOrder = answer.Question.Section.order
+
+                if (!acc[sectionId]) {
+                    acc[sectionId] = {
+                        id: sectionId,
+                        title: sectionTitle,
+                        order: sectionOrder,
+                        answers: []
                     }
                 }
-            },
-            RiskAssessment: true
-        }
-    })
 
-    if (!submission) {
-        return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
-    }
+                acc[sectionId].answers.push({
+                    questionId: answer.questionId,
+                    questionText: answer.Question.questionText,
+                    questionType: answer.Question.questionType,
+                    answerValue: answer.answerValue,
+                    points: answer.points,
+                    isRequired: answer.Question.isRequired,
+                    order: answer.Question.order
+                })
 
-    // Group answers by section (for sections 2-7)
-    const answersBySection = submission.Answers.reduce((acc: any, answer: any) => {
-        const sectionId = answer.Question.sectionId
-        const sectionTitle = answer.Question.Section.title
-        const sectionOrder = answer.Question.Section.order
+                return acc
+            }, {})
 
-        if (!acc[sectionId]) {
-            acc[sectionId] = {
-                id: sectionId,
-                title: sectionTitle,
-                order: sectionOrder,
-                answers: []
-            }
-        }
+            // ADD SECTION 1 DATA FROM INITIATION
+            const allSections = []
 
-        acc[sectionId].answers.push({
-            questionId: answer.questionId,
-            questionText: answer.Question.questionText,
-            questionType: answer.Question.questionType,
-            answerValue: answer.answerValue,
-            points: answer.points,
-            isRequired: answer.Question.isRequired,
-            order: answer.Question.order
-        })
+            // Add Section 1 from initiation data
+            if (submission.Initiation?.section1Data && Array.isArray(submission.Initiation.section1Data)) {
+                const section1 = submission.Form.Sections.find(s => s.order === 1)
+                if (section1) {
+                    const section1Answers = submission.Initiation.section1Data.map((answer: any, index: number) => {
+                        // Try to match with actual questions or create generic structure
+                        const question = section1.Questions[index]
+                        return {
+                            questionId: question?.id || `section1-q-${index}`,
+                            questionText: question?.questionText || `Question ${index + 1}`,
+                            questionType: question?.questionType || 'TEXT',
+                            answerValue: answer.value,
+                            points: 0, // Section 1 typically doesn't have risk points
+                            isRequired: question?.isRequired || false,
+                            order: question?.order || index + 1,
+                            completedBy: 'CLIENT_ADMIN' // Mark this as completed by client admin
+                        }
+                    })
 
-        return acc
-    }, {})
-
-    // ADD SECTION 1 DATA FROM INITIATION
-    const allSections = []
-
-    // Add Section 1 from initiation data
-    if (submission.Initiation?.section1Data && Array.isArray(submission.Initiation.section1Data)) {
-        const section1 = submission.Form.Sections.find(s => s.order === 1)
-        if (section1) {
-            const section1Answers = submission.Initiation.section1Data.map((answer: any, index: number) => {
-                // Try to match with actual questions or create generic structure
-                const question = section1.Questions[index]
-                return {
-                    questionId: question?.id || `section1-q-${index}`,
-                    questionText: question?.questionText || `Question ${index + 1}`,
-                    questionType: question?.questionType || 'TEXT',
-                    answerValue: answer.value,
-                    points: 0, // Section 1 typically doesn't have risk points
-                    isRequired: question?.isRequired || false,
-                    order: question?.order || index + 1,
-                    completedBy: 'CLIENT_ADMIN' // Mark this as completed by client admin
+                    allSections.push({
+                        id: section1.id,
+                        title: section1.title,
+                        order: 1,
+                        answers: section1Answers,
+                        completedBy: 'CLIENT_ADMIN',
+                        completedAt: submission.Initiation.section1CompletedAt || submission.Initiation.createdAt
+                    })
                 }
-            })
+            }
 
-            allSections.push({
-                id: section1.id,
-                title: section1.title,
-                order: 1,
-                answers: section1Answers,
-                completedBy: 'CLIENT_ADMIN',
-                completedAt: submission.Initiation.section1CompletedAt || submission.Initiation.createdAt
+            // Add sections 2-7 from user answers
+            const userSections = Object.values(answersBySection)
+                .sort((a: any, b: any) => a.order - b.order)
+                .map((section: any) => ({
+                    ...section,
+                    answers: section.answers.sort((a: any, b: any) => a.order - b.order),
+                    completedBy: 'INTERNAL_USER'
+                }))
+
+            allSections.push(...userSections)
+
+            // Sort all sections by order
+            const sortedSections = allSections.sort((a, b) => a.order - b.order)
+
+            return NextResponse.json({
+                submission: {
+                    id: submission.id,
+                    submittedAt: submission.submittedAt,
+                    reviewedAt: submission.reviewedAt,
+                    submittedBy: submission.submittedBy,
+                    clientComments: submission.clientComments,
+                    totalScore: submission.totalScore,
+                    riskLevel: submission.riskLevel,
+                    isReviewed: submission.isReviewed,
+                    approvalStatus: submission.approvalStatus,
+                    approvedBy: submission.approvedBy,
+                    approvedAt: submission.approvedAt,
+                    rejectionReason: submission.rejectionReason,
+                    approvalComments: submission.approvalComments
+                },
+                initiation: {
+                    id: submission.Initiation.id,
+                    internalUserName: submission.Initiation.internalUserName,
+                    internalUserEmail: submission.Initiation.internalUserEmail,
+                    internalUserDept: submission.Initiation.internalUserDept,
+                    internalUserRole: submission.Initiation.internalUserRole,
+                    assignmentComments: submission.Initiation.assignmentComments,
+                    dueDate: submission.Initiation.dueDate,
+                    section1Data: submission.Initiation.section1Data,
+                    section1CompletedAt: submission.Initiation.section1CompletedAt,
+                    createdBy: submission.Initiation.initiatedBy // Who created the RIF
+                },
+                vendor: {
+                    name: submission.Initiation.Vendor?.User?.name,
+                    email: submission.Initiation.Vendor?.User?.email
+                },
+                riskAssessment: submission.RiskAssessment,
+                sections: sortedSections // This now includes Section 1 + Sections 2-7
             })
         }
-    }
-
-    // Add sections 2-7 from user answers
-    const userSections = Object.values(answersBySection)
-        .sort((a: any, b: any) => a.order - b.order)
-        .map((section: any) => ({
-            ...section,
-            answers: section.answers.sort((a: any, b: any) => a.order - b.order),
-            completedBy: 'INTERNAL_USER'
-        }))
-
-    allSections.push(...userSections)
-
-    // Sort all sections by order
-    const sortedSections = allSections.sort((a, b) => a.order - b.order)
-
-    return NextResponse.json({
-        submission: {
-            id: submission.id,
-            submittedAt: submission.submittedAt,
-            reviewedAt: submission.reviewedAt,
-            submittedBy: submission.submittedBy,
-            clientComments: submission.clientComments,
-            totalScore: submission.totalScore,
-            riskLevel: submission.riskLevel,
-            isReviewed: submission.isReviewed,
-            approvalStatus: submission.approvalStatus,
-            approvedBy: submission.approvedBy,
-            approvedAt: submission.approvedAt,
-            rejectionReason: submission.rejectionReason,
-            approvalComments: submission.approvalComments
-        },
-        initiation: {
-            id: submission.Initiation.id,
-            internalUserName: submission.Initiation.internalUserName,
-            internalUserEmail: submission.Initiation.internalUserEmail,
-            internalUserDept: submission.Initiation.internalUserDept,
-            internalUserRole: submission.Initiation.internalUserRole,
-            assignmentComments: submission.Initiation.assignmentComments,
-            dueDate: submission.Initiation.dueDate,
-            section1Data: submission.Initiation.section1Data,
-            section1CompletedAt: submission.Initiation.section1CompletedAt,
-            createdBy: submission.Initiation.initiatedBy // Who created the RIF
-        },
-        vendor: {
-            name: submission.Initiation.Vendor?.User?.name,
-            email: submission.Initiation.Vendor?.User?.email
-        },
-        riskAssessment: submission.RiskAssessment,
-        sections: sortedSections // This now includes Section 1 + Sections 2-7
-    })
-}
 
         return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 })
 
@@ -490,7 +490,20 @@ export async function POST(request: NextRequest) {
                             Question: true
                         }
                     },
-                    Initiation: true
+                   Initiation: {
+                        include: {
+                            Client: {
+                                include: {
+                                    User: true  // Get client user details for email
+                                }
+                            },
+                            Vendor: {
+                                include: {
+                                    User: true
+                                }
+                            }
+                        }
+                    }
                 }
             })
 
@@ -540,6 +553,31 @@ export async function POST(request: NextRequest) {
 
                 return updated
             })
+
+            try {
+                const clientUser = submission.Initiation.Client?.User
+                const vendorName = submission.Initiation.Vendor?.User?.name || 'Unknown Vendor'
+                
+                if (clientUser?.email) {
+                    await sendRifReviewNotificationEmail({
+                        to: clientUser.email,
+                        clientName: clientUser.name || 'Client Admin',
+                        vendorName: vendorName,
+                        submittedBy: submittedBy,
+                        submittedAt: updatedSubmission.submittedAt?.toISOString() || new Date().toISOString(),
+                        riskLevel: riskAssessment.riskLevel,
+                        reviewUrl: `${process.env.NEXT_PUBLIC_APP_URL}/client/result/${submissionId}`,
+                        submissionId: submissionId
+                    })
+                    
+                    console.log(`✅ Review notification email sent to: ${clientUser.email}`)
+                } else {
+                    console.log('⚠️ Client email not found, skipping notification')
+                }
+            } catch (emailError) {
+                console.error('❌ Failed to send review notification email:', emailError)
+                // Don't fail the submission if email fails
+            }
 
             return NextResponse.json({
                 success: true,

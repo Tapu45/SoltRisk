@@ -45,6 +45,10 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
     comments: "",
   });
 
+  // State for third party type cascading dropdown
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("");
+
   // Fetch Section 1 form
   const { data: rifForm, isLoading } = useQuery({
     queryKey: ["section1-form"],
@@ -82,6 +86,8 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
       // Reset form
       setCurrentStep(1);
       setSection1Answers([]);
+      setSelectedCategory("");
+      setSelectedSubcategory("");
       setAssignment({
         name: "",
         email: "",
@@ -107,6 +113,37 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
         return [...prev, { questionId, value }];
       }
     });
+  };
+
+  // Handle category selection for third party type
+  const handleCategoryChange = (questionId: string, categoryValue: string, question: Question) => {
+    setSelectedCategory(categoryValue);
+    setSelectedSubcategory(""); // Reset subcategory when category changes
+    
+    // Update the main category answer
+    handleAnswerChange(questionId, categoryValue);
+  };
+
+  // Handle subcategory selection
+  const handleSubcategoryChange = (questionId: string, subcategoryValue: string) => {
+    setSelectedSubcategory(subcategoryValue);
+    
+    // Create composite value: "Category | Subcategory"
+    const compositeValue = `${selectedCategory} | ${subcategoryValue}`;
+    
+    // Update the answer with composite value
+    handleAnswerChange(questionId, compositeValue);
+  };
+
+  // Get subcategories for selected category
+  const getSubcategories = (question: Question) => {
+    if (question.questionKey !== "third_party_type" || !selectedCategory) {
+      return [];
+    }
+    
+    const choices = question.options?.choices || [];
+    const selectedCategoryChoice = choices.find((choice: any) => choice.value === selectedCategory);
+    return selectedCategoryChoice?.subcategories || [];
   };
 
   const isSection1Complete = () => {
@@ -165,6 +202,11 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
     const currentAnswer =
       section1Answers.find((a) => a.questionId === question.id)?.value || "";
 
+    // Special handling for third party type with cascading dropdown
+    if (question.questionKey === "third_party_type") {
+      return renderThirdPartyTypeQuestion(question, currentAnswer);
+    }
+
     switch (question.questionType) {
       case "TEXT":
         return (
@@ -188,31 +230,22 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
         );
 
       case "SINGLE_CHOICE":
+        // Convert all single choice to dropdown
         const singleChoices =
           question.questionOptions?.choices || question.options?.choices || [];
         return (
-          <div className="space-y-3">
+          <select
+            value={currentAnswer}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+          >
+            <option value="">Select an option</option>
             {singleChoices.map((choice: any) => (
-              <label
-                key={choice.value}
-                className="flex items-center group cursor-pointer p-3 border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50 transition-all"
-              >
-                <input
-                  type="radio"
-                  name={question.id}
-                  value={choice.value}
-                  checked={currentAnswer === choice.value}
-                  onChange={(e) =>
-                    handleAnswerChange(question.id, e.target.value)
-                  }
-                  className="mr-3 text-teal-600 focus:ring-teal-500"
-                />
-                <span className="text-sm text-gray-700 group-hover:text-teal-700 transition-colors">
-                  {choice.label}
-                </span>
-              </label>
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+              </option>
             ))}
-          </div>
+          </select>
         );
 
       case "MULTIPLE_CHOICE":
@@ -222,11 +255,11 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
         const multipleChoices =
           question.questionOptions?.choices || question.options?.choices || [];
         return (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3">
             {multipleChoices.map((choice: any) => (
               <label
                 key={choice.value}
-                className="flex items-center group cursor-pointer p-3 border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50 transition-all"
+                className="flex items-center group cursor-pointer p-2 hover:bg-gray-50 rounded-md transition-all"
               >
                 <input
                   type="checkbox"
@@ -255,7 +288,7 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
           <select
             value={currentAnswer}
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
           >
             <option value="">Select an option</option>
             {dropdownChoices.map((choice: any) => (
@@ -278,38 +311,15 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
 
       case "BOOLEAN":
         return (
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex items-center group cursor-pointer p-3 border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50 transition-all">
-              <input
-                type="radio"
-                name={question.id}
-                value="true"
-                checked={currentAnswer === "true"}
-                onChange={(e) =>
-                  handleAnswerChange(question.id, e.target.value)
-                }
-                className="mr-2 text-teal-600 focus:ring-teal-500"
-              />
-              <span className="text-sm text-gray-700 group-hover:text-teal-700 transition-colors">
-                Yes
-              </span>
-            </label>
-            <label className="flex items-center group cursor-pointer p-3 border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50 transition-all">
-              <input
-                type="radio"
-                name={question.id}
-                value="false"
-                checked={currentAnswer === "false"}
-                onChange={(e) =>
-                  handleAnswerChange(question.id, e.target.value)
-                }
-                className="mr-2 text-teal-600 focus:ring-teal-500"
-              />
-              <span className="text-sm text-gray-700 group-hover:text-teal-700 transition-colors">
-                No
-              </span>
-            </label>
-          </div>
+          <select
+            value={currentAnswer}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+          >
+            <option value="">Select an option</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
         );
 
       default:
@@ -322,6 +332,100 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
           />
         );
     }
+  };
+
+  // Special render function for Third Party Type with cascading dropdown
+  const renderThirdPartyTypeQuestion = (question: Question, currentAnswer: string) => {
+    const choices = question.options?.choices || [];
+    const subcategories = getSubcategories(question);
+    
+    // Parse current answer to extract category and subcategory if it's composite
+    const isComposite = currentAnswer.includes(" | ");
+    const displayCategory = isComposite ? currentAnswer.split(" | ")[0] : currentAnswer;
+    const displaySubcategory = isComposite ? currentAnswer.split(" | ")[1] : "";
+
+    // Update local state if we have a composite answer but local state is empty
+    if (isComposite && !selectedCategory) {
+      setSelectedCategory(displayCategory);
+      setSelectedSubcategory(displaySubcategory);
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Main Category Dropdown */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Category
+          </label>
+          <select
+            value={selectedCategory || displayCategory}
+            onChange={(e) => handleCategoryChange(question.id, e.target.value, question)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+          >
+            <option value="">Select a category</option>
+            {choices.map((choice: any) => (
+              <option key={choice.value} value={choice.value}>
+                {choice.label}
+                {choice.subcategories && choice.subcategories.length > 0 && 
+                  ` (${choice.subcategories.length} subcategories)`
+                }
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Subcategory Dropdown - Only show if category has subcategories */}
+        <AnimatePresence>
+          {(selectedCategory || displayCategory) && subcategories.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="border-l-4 border-teal-500 pl-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Specific Type
+                  <span className="text-teal-600 ml-1">
+                    ({choices.find((c: { value: string; }) => c.value === (selectedCategory || displayCategory))?.label})
+                  </span>
+                </label>
+                <select
+                  value={selectedSubcategory || displaySubcategory}
+                  onChange={(e) => handleSubcategoryChange(question.id, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                >
+                  <option value="">Select a specific type</option>
+                  {subcategories.map((subcategory: string, index: number) => (
+                    <option key={index} value={subcategory}>
+                      {subcategory}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Selection Summary */}
+        {(selectedCategory || displayCategory) && (
+          <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+            <div className="flex items-center text-sm">
+              <CheckCircle className="h-4 w-4 text-teal-600 mr-2" />
+              <span className="font-medium text-teal-800">
+                Selected: {selectedCategory || displayCategory}
+              </span>
+              {(selectedSubcategory || displaySubcategory) && (
+                <span className="text-teal-600 ml-1">
+                  → {selectedSubcategory || displaySubcategory}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -353,7 +457,7 @@ const RifCreationForm: React.FC<RifCreationFormProps> = ({
         transition={{ duration: 0.5 }}
         className="space-y-6"
       >
-        {/* Improved Header */}
+        {/* Header */}
         <Card className="border-0 bg-gradient-to-r from-teal-600 to-blue-600 text-white shadow-xl">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-6">
