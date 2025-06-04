@@ -681,3 +681,140 @@ export const sendRifReviewNotificationEmail = async (params: RifReviewNotificati
     html: emailHtml,
   });
 };
+
+
+interface VendorQuestionnaireInvitationParams {
+  to: string
+  vendorName: string
+  clientName: string
+  riskLevel: string
+  templateName: string
+  dueDate: string
+  registrationUrl: string
+}
+
+// Add this new function
+export const sendVendorQuestionnaireInvitation = async (params: VendorQuestionnaireInvitationParams) => {
+  const {
+    to,
+    vendorName,
+    clientName,
+    riskLevel,
+    templateName,
+    dueDate,
+    registrationUrl
+  } = params
+
+  const mailOptions = {
+    from: process.env.GMAIL_USER,
+    to,
+    subject: `🔐 Security Questionnaire Required - ${riskLevel} Risk Assessment`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Security Questionnaire Invitation</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; }
+          .container { max-width: 600px; margin: 0 auto; background-color: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+          .content { padding: 30px; }
+          .risk-badge { 
+            display: inline-block; 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            font-weight: bold; 
+            font-size: 12px;
+            ${riskLevel === 'HIGH' ? 'background-color: #fee2e2; color: #dc2626;' : 
+              riskLevel === 'MEDIUM' ? 'background-color: #fef3c7; color: #d97706;' : 
+              'background-color: #dcfce7; color: #16a34a;'}
+          }
+          .cta-button { 
+            display: inline-block; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 15px 30px; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            font-weight: bold;
+            margin: 20px 0;
+          }
+          .footer { background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6c757d; }
+          .info-box { background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🛡️ Security Questionnaire</h1>
+            <p>Third-Party Risk Assessment Required</p>
+          </div>
+          
+          <div class="content">
+            <h2>Hello ${vendorName || 'Vendor'},</h2>
+            
+            <p>You have been invited by <strong>${clientName}</strong> to complete a security questionnaire as part of their vendor onboarding process.</p>
+            
+            <div class="info-box">
+              <h3>📋 Assessment Details:</h3>
+              <ul>
+                <li><strong>Risk Level:</strong> <span class="risk-badge">${riskLevel}</span></li>
+                <li><strong>Questionnaire:</strong> ${templateName}</li>
+                <li><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString()}</li>
+                <li><strong>Client:</strong> ${clientName}</li>
+              </ul>
+            </div>
+            
+            <h3>📝 What You Need to Do:</h3>
+            <ol>
+              <li><strong>Click the button below</strong> to access the registration portal</li>
+              <li><strong>Complete your vendor profile</strong> with company information</li>
+              <li><strong>Answer the security questionnaire</strong> based on your ${riskLevel.toLowerCase()} risk level</li>
+              <li><strong>Upload any required evidence</strong> or documentation</li>
+              <li><strong>Submit for review</strong> by ${clientName}</li>
+            </ol>
+            
+            <div style="text-align: center;">
+              <a href="${registrationUrl}" class="cta-button">
+                🚀 Complete Registration & Questionnaire
+              </a>
+            </div>
+            
+            <div class="info-box">
+              <h4>⏰ Important Notes:</h4>
+              <ul>
+                <li>This invitation expires on <strong>${new Date(dueDate).toLocaleDateString()}</strong></li>
+                <li>You can save your progress and return later</li>
+                <li>All information is encrypted and secure</li>
+                <li>Contact ${clientName} if you have questions</li>
+              </ul>
+            </div>
+            
+            <p><strong>Questions?</strong> Reply to this email or contact ${clientName} directly.</p>
+            
+            <p>Best regards,<br>
+            <strong>${clientName}</strong><br>
+            Third-Party Risk Management Team</p>
+          </div>
+          
+          <div class="footer">
+            <p>🔐 This is an automated security assessment invitation from G3 Cyberspace TPRM Platform</p>
+            <p>If you received this email by mistake, please ignore it.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  }
+
+  try {
+    const info = await transporter.sendMail(mailOptions)
+    console.log('✅ Vendor questionnaire invitation sent:', info.messageId)
+    return { success: true, messageId: info.messageId }
+  } catch (error) {
+    console.error('❌ Failed to send vendor questionnaire invitation:', error)
+    throw error
+  }
+}

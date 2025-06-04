@@ -55,6 +55,58 @@ export default function AssessmentResultsPage() {
     enabled: !!submissionId
   })
 
+ const sendQuestionnaireMutation = useMutation({
+  mutationFn: async () => {
+     const clientId = currentUser.id;
+    
+    if (!clientId) {
+      throw new Error('Client ID not found. Please ensure you are logged in properly.');
+    }
+
+
+    const response = await fetch(API_ROUTES.VENDOR.SEND_INVITATION, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rifSubmissionId: submissionId,
+        clientId: clientId
+      })
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || 'Failed to send questionnaire invitation')
+    }
+    
+    return response.json()
+  },
+  onSuccess: (data) => {
+    toast.success(
+      <div className="flex flex-col gap-1">
+        <div className="font-semibold">Questionnaire Invitation Sent!</div>
+        <div className="text-sm text-gray-600">
+          Email sent to {data.vendorEmail} for {data.riskLevel} risk assessment
+        </div>
+      </div>
+    )
+    queryClient.invalidateQueries({ queryKey: ['submission-details', submissionId] })
+  },
+  onError: (error: any) => {
+    if (error.message.includes('already sent')) {
+      toast.warning(
+        <div className="flex flex-col gap-1">
+          <div className="font-semibold">Invitation Already Sent</div>
+          <div className="text-sm text-gray-600">
+            A questionnaire invitation has already been sent for this assessment
+          </div>
+        </div>
+      )
+    } else {
+      toast.error(error.message || 'Failed to send questionnaire invitation')
+    }
+  }
+})
+
   // Approve/Reject mutations
   const approveMutation = useMutation({
     mutationFn: async () => {
@@ -127,6 +179,14 @@ export default function AssessmentResultsPage() {
       }
       rejectMutation.mutate()
     }
+  }
+
+  const handleSendQuestionnaire = () => {
+    if (assessmentData?.submission?.approvalStatus !== 'APPROVED') {
+      toast.error('Assessment must be approved before sending questionnaire')
+      return
+    }
+    sendQuestionnaireMutation.mutate()
   }
 
   const cancelApproval = () => {
@@ -316,6 +376,32 @@ export default function AssessmentResultsPage() {
                     </div>
                   </div>
                 </div>
+                {assessmentData.submission.approvalStatus === 'APPROVED' && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Button
+                        onClick={handleSendQuestionnaire}
+                        disabled={sendQuestionnaireMutation.isPending}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xl text-white"
+                        size="lg"
+                      >
+                        {sendQuestionnaireMutation.isPending ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
+                          />
+                        ) : (
+                          <Send className="w-5 h-5 mr-2" />
+                        )}
+                        Send Questionnaire
+                      </Button>
+                    </motion.div>
+                  )}
 
                 {/* Quick Action Buttons */}
                 {assessmentData.submission.isReviewed && 

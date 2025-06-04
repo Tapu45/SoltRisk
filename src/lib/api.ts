@@ -72,11 +72,45 @@ export const API_ROUTES = {
 
 
   VENDOR: {
+    // Core vendor management
     GET_ALL: `${BASE_URL}/vendors`,
     GET_BY_ID: (id: string) => `${BASE_URL}/vendors/${id}`,
     CREATE: `${BASE_URL}/vendors`,
     UPDATE: (id: string) => `${BASE_URL}/vendors/${id}`,
     DELETE: (id: string) => `${BASE_URL}/vendors/${id}`,
+
+    // Token verification
+    VERIFY_TOKEN: (token: string) => `${BASE_URL}/vendor/verify/${token}`,
+
+    // Vendor registration & profile
+    REGISTER: `${BASE_URL}/vendor?action=register`,
+    GET_PROFILE: (vendorId: string) => `${BASE_URL}/vendor?action=profile&vendorId=${vendorId}`,
+    GET_PROFILE_BY_USER: (userId: string) => `${BASE_URL}/vendor?action=profile&userId=${userId}`,
+    UPDATE_PROFILE: `${BASE_URL}/vendor?action=update-profile`,
+
+    // Questionnaire management
+    START_QUESTIONNAIRE: `${BASE_URL}/vendor?action=start-questionnaire`,
+    SUBMIT_QUESTIONNAIRE: `${BASE_URL}/vendor?action=submit-questionnaire`,
+    GET_QUESTIONNAIRE: (questionnaireId: string) => `${BASE_URL}/vendor?action=questionnaire&questionnaireId=${questionnaireId}`,
+    GET_QUESTIONNAIRE_LIST: (vendorId: string) => `${BASE_URL}/vendor?action=questionnaire-list&vendorId=${vendorId}`,
+    UPDATE_QUESTIONNAIRE_STATUS: `${BASE_URL}/vendor?action=update-questionnaire-status`,
+
+    // Response management
+    SAVE_RESPONSE: `${BASE_URL}/vendor?action=save-response`,
+    BULK_SAVE_RESPONSES: `${BASE_URL}/vendor?action=bulk-save-responses`,
+    GET_RESPONSES: (questionnaireId: string) => `${BASE_URL}/vendor?action=responses&questionnaireId=${questionnaireId}`,
+    GET_RESPONSE: (responseId: string) => `${BASE_URL}/vendor?action=response&responseId=${responseId}`,
+    UPDATE_RESPONSE: `${BASE_URL}/vendor?action=update-response`,
+
+    // Progress tracking
+    GET_PROGRESS: (questionnaireId: string) => `${BASE_URL}/vendor?action=progress&questionnaireId=${questionnaireId}`,
+
+    // Invitation management (Client side)
+    SEND_INVITATION: `${BASE_URL}/vendor/invitation`,
+    GET_INVITATIONS: (clientId: string) => `${BASE_URL}/vendor/invitation?action=list&clientId=${clientId}`,
+    GET_INVITATION_DETAILS: (invitationId: string) => `${BASE_URL}/vendor/invitation?action=details&invitationId=${invitationId}`,
+    RESEND_INVITATION: `${BASE_URL}/vendor/invitation?action=resend`,
+    CANCEL_INVITATION: `${BASE_URL}/vendor/invitation?action=cancel`,
   },
 
   EVIDENCE: {

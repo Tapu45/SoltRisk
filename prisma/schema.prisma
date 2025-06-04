@@ -89,6 +89,7 @@ model User {
   Vendor              Vendor?
   TemporaryPassword   TemporaryPassword?    // Add this
   PasswordResetTokens PasswordResetToken[]  // Add this
+  sentInvitations VendorInvitation[]
 }
 
 model Vendor {
@@ -97,7 +98,78 @@ model Vendor {
   createdAt DateTime   @default(now())
   Evidence  Evidence[]
   User      User       @relation(fields: [userId], references: [id])
-  RifInitiations RifInitiation[] // Added relation
+  RifInitiations RifInitiation[] 
+
+  Questionnaires  VendorQuestionnaire[]
+  Responses       VendorResponse[]
+  Profile         VendorProfile?
+}
+
+model VendorProfile {
+  id                        String    @id @default(uuid())
+  vendorId                  String    @unique
+  
+  companyName               String
+  registeredAddress         String
+  country                   String
+  region                    String?
+  
+  primaryContactName        String
+  primaryContactTitle       String
+  primaryContactEmail       String
+  primaryContactPhone       String
+  
+  companyWebsite            String?
+  yearEstablished           Int
+  
+  companySize               CompanySize
+  employeeCount             Int?
+  
+  legalStructure            LegalStructure
+  
+  hasParentCompany          Boolean     @default(false)
+  parentCompanyName         String?
+  parentCompanyHeadquarters String?
+  
+  keyExecutives             Json
+  businessSectors           String[]
+  productsServices          String
+  geographicalPresence      String[]
+  
+  isPubliclyTraded          Boolean     @default(false)
+  stockExchange             String?
+  tickerSymbol              String?
+  
+  certifications            Json
+  
+  isCompleted               Boolean     @default(false)
+  completedAt               DateTime?
+  completionPercentage      Float       @default(0)
+  
+  createdAt                 DateTime    @default(now())
+  updatedAt                 DateTime    @updatedAt
+  createdBy                 String?
+  
+  Vendor                    Vendor      @relation(fields: [vendorId], references: [id])
+}
+
+enum CompanySize {
+  MICRO
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+enum LegalStructure {
+  PRIVATE_LIMITED
+  PUBLIC_LIMITED
+  PARTNERSHIP
+  SOLE_PROPRIETORSHIP
+  LLC
+  CORPORATION
+  NON_PROFIT
+  OTHER
 }
 
 // New Organization model
@@ -201,6 +273,8 @@ model RifSubmission {
   id            String          @id @default(uuid())
   initiationId  String          @unique
   formId        String
+  invitation      VendorInvitation? 
+  questionnaires  VendorQuestionnaire[] 
   submittedAt   DateTime        @default(now())
   reviewedAt    DateTime?
   section1CompletedBy String?   // Client Admin user ID
@@ -302,3 +376,289 @@ enum RiskLevel {
   HIGH              
 }
 
+// Questionnaire Template System
+model QuestionnaireTemplate {
+  id              String              @id @default(uuid())
+  name            String              // "ISO 27001 Low Risk", "GDPR Medium Risk"
+  description     String?
+  invitations     VendorInvitation[] 
+  riskLevel       RiskLevel           // LOW, MEDIUM, HIGH
+  templateType    String              // "ISO27001", "GDPR", "SOC2", "HIPAA"
+  version         String              @default("1.0")
+  isActive        Boolean             @default(true)
+  totalQuestions  Int                 @default(0)
+  estimatedTime   Int?                // Minutes to complete
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  Sections        QuestionnaireSection[]
+  Questions       QuestionnaireQuestion[]
+  Assignments     VendorQuestionnaire[]
+}
+
+model QuestionnaireSection {
+  id              String              @id @default(uuid())
+  templateId      String
+  title           String              // "Governance & Security Program", "Data Privacy"
+  description     String?
+  order           Int                 // Section ordering
+  weightage       Float               @default(1.0) // Section importance weight
+  isRequired      Boolean             @default(true)
+  
+  Template        QuestionnaireTemplate @relation(fields: [templateId], references: [id])
+  Questions       QuestionnaireQuestion[]
+}
+
+model QuestionnaireQuestion {
+  id              String              @id @default(uuid())
+  templateId      String
+  sectionId       String
+  questionText    String
+  description     String?             // Additional context/notes from FRD
+  questionType    QuestionType
+  options         Json?               // For choice-based questions
+  isRequired      Boolean             @default(true)
+  evidenceRequired Boolean            @default(false) // Requires file upload
+  order           Int
+  category        String?             // "Governance", "Technical", "Compliance"
+  createdAt       DateTime            @default(now())
+  
+  Template        QuestionnaireTemplate @relation(fields: [templateId], references: [id])
+  Section         QuestionnaireSection @relation(fields: [sectionId], references: [id])
+  Responses       VendorResponse[]
+}
+
+// Vendor Questionnaire Assignment
+model VendorQuestionnaire {
+  id              String              @id @default(uuid())
+  vendorId        String
+  templateId      String
+  initiationId    String?             // Links back to RIF
+  rifSubmissionId String?             // Links back to RIF submission
+  invitationId    String?             @unique
+  status          QuestionnaireStatus @default(NOT_STARTED)
+  assignedAt      DateTime            @default(now())
+  startedAt       DateTime?
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+  approvedAt      DateTime?
+  dueDate         DateTime
+  
+  // Progress tracking
+  totalQuestions  Int                 @default(0)
+  answeredQuestions Int               @default(0)
+  progressPercentage Float            @default(0)
+  
+  // Assignment details
+  assignedBy      String              // Client user ID
+  reviewedBy      String?             // Client reviewer
+  
+  Vendor          Vendor              @relation(fields: [vendorId], references: [id])
+  Template        QuestionnaireTemplate @relation(fields: [templateId], references: [id])
+  Responses       VendorResponse[]
+  ProgressLogs    QuestionnaireProgress[]
+  Comments        QuestionnaireComment[]
+  RiskAssessment  QuestionnaireRiskAssessment?
+  rifSubmission   RifSubmission?      @relation(fields: [rifSubmissionId], references: [id])
+  invitation      VendorInvitation?   @relation(fields: [invitationId], references: [id])
+}
+
+model VendorResponse {
+  id              String              @id @default(uuid())
+  questionnaireId String
+  questionId      String
+  vendorId        String
+  responseText    String?
+  responseData    Json?               // For complex responses (choices, ratings)
+  status          ResponseStatus      @default(NOT_STARTED)
+ 
+  
+  // Evidence handling
+  evidenceFiles   String[]            // Array of file URLs/paths
+  evidenceNotes   String?
+  
+  // Review data
+  reviewComments  String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  isApproved      Boolean?
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  Questionnaire   VendorQuestionnaire @relation(fields: [questionnaireId], references: [id])
+  Question        QuestionnaireQuestion @relation(fields: [questionId], references: [id])
+  Vendor          Vendor              @relation(fields: [vendorId], references: [id])
+  Comments        ResponseComment[]
+  Evidence        QuestionnaireEvidence[]
+  
+  @@unique([questionnaireId, questionId])
+}
+
+// Enhanced Evidence Model for Questionnaires
+model QuestionnaireEvidence {
+  id              String              @id @default(uuid())
+  responseId      String
+  fileName        String
+  originalName    String
+  fileSize        Int
+  fileType        String
+  fileUrl         String
+  uploadedAt      DateTime            @default(now())
+  uploadedBy      String              // Vendor user ID
+  
+  // Review status
+  reviewStatus    EvidenceReviewStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewComments  String?
+  
+  // File metadata
+  version         Int                 @default(1)
+  isLatest        Boolean             @default(true)
+  checksum        String?             // For file integrity
+  
+  Response        VendorResponse      @relation(fields: [responseId], references: [id])
+}
+
+enum EvidenceReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_CLARIFICATION
+}
+
+// Comment System for Questionnaires
+model QuestionnaireComment {
+  id              String              @id @default(uuid())
+  questionnaireId String
+  authorId        String
+  authorType      UserRole            // CLIENT or VENDOR
+  content         String
+  isInternal      Boolean             @default(false) // Internal client notes
+  parentId        String?             // For threaded replies
+  mentions        String[]            // Array of user IDs mentioned
+  isResolved      Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  Questionnaire   VendorQuestionnaire @relation(fields: [questionnaireId], references: [id])
+  Parent          QuestionnaireComment? @relation("CommentReplies", fields: [parentId], references: [id])
+  Replies         QuestionnaireComment[] @relation("CommentReplies")
+}
+
+model ResponseComment {
+  id              String              @id @default(uuid())
+  responseId      String
+  authorId        String
+  authorType      UserRole
+  content         String
+  isInternal      Boolean             @default(false)
+  createdAt       DateTime            @default(now())
+  
+  Response        VendorResponse      @relation(fields: [responseId], references: [id])
+}
+
+// Progress Tracking
+model QuestionnaireProgress {
+  id              String              @id @default(uuid())
+  questionnaireId String
+  sectionId       String?
+  totalQuestions  Int
+  answeredQuestions Int
+  progressPercentage Float
+  timeSpent       Int                 // Minutes
+  lastActivity    DateTime
+  createdAt       DateTime            @default(now())
+  
+  Questionnaire   VendorQuestionnaire @relation(fields: [questionnaireId], references: [id])
+}
+
+// Risk Scoring for Questionnaires
+model QuestionnaireRiskAssessment {
+  id              String              @id @default(uuid())
+  questionnaireId String              @unique
+  totalScore      Int
+  maxPossibleScore Int
+  riskPercentage  Float
+  riskLevel       RiskLevel
+  sectionScores   Json                // Breakdown by section
+  riskIndicators  Json                // High-risk answers
+  recommendations String[]
+  assessedAt      DateTime            @default(now())
+  assessedBy      String?
+  
+  Questionnaire   VendorQuestionnaire @relation(fields: [questionnaireId], references: [id])
+}
+
+enum QuestionnaireStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  NEEDS_CLARIFICATION
+  EXPIRED
+}
+
+enum ResponseStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  APPROVED
+  REJECTED
+  NEEDS_CLARIFICATION
+}
+
+enum QuestionType {
+  TEXT
+  TEXTAREA
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  BOOLEAN
+  SCALE
+  FILE_UPLOAD
+  DATE
+  NUMBER
+}
+
+
+
+enum UserRole {
+  CLIENT
+  VENDOR
+  ADMIN
+}
+
+model VendorInvitation {
+  id              String            @id @default(uuid())
+  rifSubmissionId String            @unique  // Links to completed RIF
+  clientId        String            // Who sent the invitation
+  vendorEmail     String
+  vendorName      String?
+  inviteToken     String            @unique
+  riskLevel       RiskLevel         // AUTO-POPULATED from RIF
+  templateId      String            // AUTO-SELECTED based on risk
+  expiresAt       DateTime
+  status          InvitationStatus  @default(PENDING)
+  sentAt          DateTime?
+  acceptedAt      DateTime?
+  createdAt       DateTime          @default(now())
+  
+  // Relations
+  rifSubmission   RifSubmission     @relation(fields: [rifSubmissionId], references: [id])
+  client          User              @relation(fields: [clientId], references: [id])
+  template        QuestionnaireTemplate @relation(fields: [templateId], references: [id])
+  questionnaire   VendorQuestionnaire? // One invitation creates one questionnaire
+  
+  @@map("vendor_invitations")
+}
+
+enum InvitationStatus {
+  PENDING
+  SENT
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+}
