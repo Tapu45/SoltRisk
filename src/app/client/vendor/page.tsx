@@ -845,8 +845,8 @@ export default function VendorListPage() {
                   questionnaires={selectedVendor.questionnaires}
                   onViewQuestionnaire={(id) => window.open(`/client/questionnaires/${id}`, '_blank')}
                   isExpanded={true}
-                  showProgress={true}
-                  summary={selectedVendor.summary}
+              
+                  
                 />
               </motion.div>
             )}
