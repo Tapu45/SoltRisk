@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { RiskLevel, RifStatus, QuestionnaireStatus } from '../../../../generated/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 
-export interface DashboardMetrics {
+interface DashboardMetrics {
   thirdPartyRequestStatus: ThirdPartyRequestStatus;
   vendorCriticalityOverview: VendorCriticalityOverview;
   assessmentStatusByDueDate: AssessmentStatusByDueDate;
@@ -11,14 +11,14 @@ export interface DashboardMetrics {
 }
 
 // 1. Third-Party Request Status API
-export interface ThirdPartyRequestStatus {
+interface ThirdPartyRequestStatus {
   totalRequests: number;
   inProgress: number;
   completed: number;
   rejected: number;
 }
 
-export async function getThirdPartyRequestStatus(clientId: string): Promise<ThirdPartyRequestStatus> {
+async function getThirdPartyRequestStatus(clientId: string): Promise<ThirdPartyRequestStatus> {
   const requests = await prisma.rifInitiation.groupBy({
     by: ['status'],
     where: {
@@ -43,14 +43,14 @@ export async function getThirdPartyRequestStatus(clientId: string): Promise<Thir
 }
 
 // 2. Vendor Criticality Overview API
-export interface VendorCriticalityOverview {
+ interface VendorCriticalityOverview {
   critical: number;
   high: number;
   medium: number;
   low: number;
 }
 
-export async function getVendorCriticalityOverview(clientId: string): Promise<VendorCriticalityOverview> {
+ async function getVendorCriticalityOverview(clientId: string): Promise<VendorCriticalityOverview> {
   const riskAssessments = await prisma.riskAssessment.groupBy({
     by: ['riskLevel'],
     where: {
@@ -79,13 +79,13 @@ export async function getVendorCriticalityOverview(clientId: string): Promise<Ve
 }
 
 // 3. Assessment Status by Due Date API
-export interface AssessmentStatusByDueDate {
+interface AssessmentStatusByDueDate {
   overdue: number;
   dueSoon: number; // Within next 7 days
   pending: number;
 }
 
-export async function getAssessmentStatusByDueDate(clientId: string): Promise<AssessmentStatusByDueDate> {
+async function getAssessmentStatusByDueDate(clientId: string): Promise<AssessmentStatusByDueDate> {
   const today = new Date();
   const sevenDaysFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -126,7 +126,7 @@ export async function getAssessmentStatusByDueDate(clientId: string): Promise<As
 }
 
 // 4. Top Critical Vendors API
-export interface TopCriticalVendor {
+interface TopCriticalVendor {
   vendorId: string;
   vendorName: string;
   riskCriticality: RiskLevel;
@@ -135,7 +135,7 @@ export interface TopCriticalVendor {
   companyName: string;
 }
 
-export async function getTopCriticalVendors(
+async function getTopCriticalVendors(
   clientId: string, 
   limit: number = 10,
   filters?: {
@@ -191,27 +191,27 @@ export async function getTopCriticalVendors(
 }
 
 // 5. Additional Metrics API
-export interface AdditionalMetrics {
+ interface AdditionalMetrics {
   avgTimeToOnboard: number; // Days
   completionRate: number; // Percentage
   engagementHeatmap: EngagementHeatmapData[];
   riskTrend: RiskTrendData[];
 }
 
-export interface EngagementHeatmapData {
+ interface EngagementHeatmapData {
   date: string;
   count: number;
   intensity: 'low' | 'medium' | 'high';
 }
 
-export interface RiskTrendData {
+interface RiskTrendData {
   month: string;
   high: number;
   medium: number;
   low: number;
 }
 
-export async function getAdditionalMetrics(clientId: string): Promise<AdditionalMetrics> {
+ async function getAdditionalMetrics(clientId: string): Promise<AdditionalMetrics> {
   // Average Time to Onboard
   const completedOnboarding = await prisma.vendorQuestionnaire.findMany({
     where: {
@@ -333,7 +333,7 @@ export async function getAdditionalMetrics(clientId: string): Promise<Additional
 }
 
 // Main Dashboard API
-export async function getDashboardMetrics(clientId: string): Promise<DashboardMetrics> {
+ async function getDashboardMetrics(clientId: string): Promise<DashboardMetrics> {
   const [
     thirdPartyRequestStatus,
     vendorCriticalityOverview,
