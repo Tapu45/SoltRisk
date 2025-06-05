@@ -153,38 +153,63 @@ const SetupPasswordForm = ({
     return "Strong"
   }
 
-  async function onSubmit(data: SetupPasswordFormValues) {
-    setIsLoading(true)
+  // Update the onSubmit function in SetupPasswordForm
+// Update the onSubmit function in SetupPasswordForm
+async function onSubmit(data: SetupPasswordFormValues) {
+  setIsLoading(true)
+  
+  try {
+    const response = await fetch(`${API_ROUTES.AUTH.LOGIN}?action=setup-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: userData.email,
+        currentPassword: userData.password,
+        newPassword: data.newPassword,
+        confirmPassword: data.confirmPassword
+      }),
+    })
     
-    try {
-      const response = await fetch(`${API_ROUTES.AUTH.LOGIN}?action=setup-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: userData.email,
-          currentPassword: userData.password,
-          newPassword: data.newPassword,
-          confirmPassword: data.confirmPassword
-        }),
-      })
-      
-      const result = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(result.error || "Password setup failed")
-      }
-      
-      toast.success("Password updated successfully!")
-      onSuccess()
-      
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Password setup failed")
-    } finally {
-      setIsLoading(false)
+    const result = await response.json()
+    
+    if (!response.ok) {
+      throw new Error(result.error || "Password setup failed")
     }
+    
+    // Store the auth token and user data for automatic login
+    if (result.success && result.token && result.user) {
+      localStorage.setItem("auth_token", result.token)
+      localStorage.setItem("user", JSON.stringify(result.user))
+      
+      // Verify data was stored
+      const storedToken = localStorage.getItem("auth_token")
+      const storedUser = localStorage.getItem("user")
+      
+     
+      
+      if (storedToken && storedUser) {
+        toast.success("Password updated successfully!")
+        
+        // Call onSuccess after a small delay to ensure everything is ready
+        setTimeout(() => {
+          onSuccess()
+        }, 500)
+      } else {
+        throw new Error("Failed to store authentication data")
+      }
+    } else {
+      throw new Error("Invalid response from server")
+    }
+    
+  } catch (error) {
+    console.error("Password setup error:", error)
+    toast.error(error instanceof Error ? error.message : "Password setup failed")
+  } finally {
+    setIsLoading(false)
   }
+}
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -387,29 +412,41 @@ export default function LoginPage() {
     }
   }
 
-  const handlePasswordSetupSuccess = async () => {
+ const handlePasswordSetupSuccess = async () => {
   try {
-    // After successful password setup, get the fresh user data from localStorage or make a fresh login
+    // Get the fresh user data from localStorage
     const token = localStorage.getItem("auth_token")
-    if (token) {
-      // Parse the token to get user data or make a request to get fresh user data
-      const user = JSON.parse(localStorage.getItem("user") || '{}')
+    const userStr = localStorage.getItem("user")
+    
+   
+    
+    if (token && userStr) {
+      const user = JSON.parse(userStr)
+      console.log("User role:", user.role)
+      
+      // Reset temporary password state
+      setIsTemporaryPassword(false)
+      setTemporaryUserData(null)
       
       toast.success("Password setup complete! Redirecting...")
       
-      // Redirect based on user role
-      setTimeout(() => {
-        redirectBasedOnRole(user.role)
-      }, 1500)
+      // Redirect immediately
+      redirectBasedOnRole(user.role)
     } else {
-      // If no token, redirect to login
-      router.push("/login")
+      console.error("No token or user data found in localStorage")
+      toast.error("Session error. Please login again.")
+      setIsTemporaryPassword(false)
+      setTemporaryUserData(null)
     }
   } catch (error) {
     console.error("Error after password setup:", error)
-    router.push("/login")
+    toast.error("Session error. Please login again.")
+    setIsTemporaryPassword(false)
+    setTemporaryUserData(null)
   }
 }
+
+// ...existing code...
 
   const redirectBasedOnRole = (role: string) => {
     switch (role) {

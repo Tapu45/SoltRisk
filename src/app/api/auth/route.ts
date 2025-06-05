@@ -402,7 +402,7 @@ async function handleSetupPassword(request: NextRequest) {
       }
     });
 
-    // Remove temporary password flag if you're using one
+    // Remove temporary password flag
     await removeTemporaryPasswordFlag(user.id);
 
     // Generate new JWT token after password setup
@@ -435,7 +435,9 @@ async function handleSetupPassword(request: NextRequest) {
         name: user.name,
         role: user.role
       },
-      token: token
+      token: token,
+      // Add this flag to indicate automatic login should happen
+      autoLogin: true
     });
 
   } catch (error) {
