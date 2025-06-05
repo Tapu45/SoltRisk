@@ -198,7 +198,8 @@ export default function VendorResponses({
   questionnaires, 
   onViewQuestionnaire
 }: VendorResponsesProps) {
-  const [showEvidence, setShowEvidence] = useState<{ [key: string]: boolean }>({})
+  const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({})
+  const [selectedResponse, setSelectedResponse] = useState<string | null>(null)
 
   // Helper function to format response text for display
   const formatResponseText = (response: VendorResponsesProps['questionnaires'][0]['responses'][0]) => {
@@ -251,12 +252,6 @@ export default function VendorResponses({
           displayText = displayText ? `${displayText} - ${dataValues}` : dataValues
         }
       }
-    }
-    
-    // Truncate if too long
-    const maxLength = 120
-    if (displayText.length > maxLength) {
-      return displayText.substring(0, maxLength) + '...'
     }
     
     return displayText || 'Response provided'
@@ -325,6 +320,27 @@ export default function VendorResponses({
     }
   }
 
+  const toggleSection = (sectionTitle: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionTitle]: !prev[sectionTitle]
+    }))
+  }
+
+  const selectResponse = (responseId: string) => {
+    setSelectedResponse(responseId)
+  }
+
+  const getSelectedResponseData = () => {
+    if (!selectedResponse) return null
+    
+    for (const questionnaire of questionnaires) {
+      const response = questionnaire.responses.find(r => r.id === selectedResponse)
+      if (response) return response
+    }
+    return null
+  }
+
   if (questionnaires.length === 0) {
     return (
       <motion.div
@@ -371,9 +387,11 @@ export default function VendorResponses({
   const isOverdue = new Date(mainQuestionnaire.dueDate) < new Date() && 
     !['SUBMITTED', 'APPROVED'].includes(mainQuestionnaire.status)
 
+  const selectedResponseData = getSelectedResponseData()
+
   return (
     <div className="space-y-6">
-      {/* Unified Header with All Stats */}
+      {/* Header Section */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -495,184 +513,236 @@ export default function VendorResponses({
         </Card>
       </motion.div>
 
-      {/* Responses Section - Always Visible */}
-      <div className="space-y-4">
-        {questionnaires.map((questionnaire, index) => (
-          <motion.div
-            key={questionnaire.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <Card className="border-0 shadow-lg bg-white overflow-hidden">
-              {/* Responses Header */}
-              <div className="bg-gray-50 border-b border-gray-200 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl flex items-center justify-center">
-                      <MessageSquare className="h-5 w-5 text-white" />
+      {/* Main Content - Sidebar + Detail View */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Left Sidebar - Sections and Questions */}
+        <div className="col-span-4">
+          <Card className="border-0 shadow-lg bg-white h-[600px] overflow-hidden">
+            <div className="bg-gray-50 border-b border-gray-200 p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                  <Layers className="h-4 w-4 text-white" />
+                </div>
+                <h3 className="font-semibold text-gray-900">Sections & Questions</h3>
+              </div>
+            </div>
+            
+            <div className="p-4 h-full overflow-y-auto">
+              {questionnaires.map((questionnaire) => (
+                <div key={questionnaire.id} className="space-y-2">
+                  {getResponsesBySection(questionnaire.responses).map(([sectionTitle, responses]) => (
+                    <div key={sectionTitle} className="space-y-1">
+                      {/* Section Header */}
+                      <button
+                        onClick={() => toggleSection(sectionTitle)}
+                        className="w-full flex items-center justify-between p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-pink-500 rounded flex items-center justify-center">
+                            <Layers className="h-3 w-3 text-white" />
+                          </div>
+                          <span className="font-medium text-gray-900 text-sm">{sectionTitle}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {responses.length}
+                          </Badge>
+                        </div>
+                        {expandedSections[sectionTitle] ? (
+                          <ChevronDown className="h-4 w-4 text-gray-600" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-gray-600" />
+                        )}
+                      </button>
+
+                      {/* Questions List */}
+                      {expandedSections[sectionTitle] && (
+                        <div className="ml-4 space-y-1">
+                          {responses.map((response) => {
+                            const QuestionIcon = questionTypeIcons[response.Question.questionType as keyof typeof questionTypeIcons] || FileText
+                            const isCompleted = isResponseCompleted(response)
+                            const isSelected = selectedResponse === response.id
+
+                            return (
+                              <button
+                                key={response.id}
+                                onClick={() => selectResponse(response.id)}
+                                className={`w-full text-left p-3 rounded-lg transition-all ${
+                                  isSelected 
+                                    ? 'bg-teal-50 border-2 border-teal-200' 
+                                    : 'bg-white border border-gray-200 hover:bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex items-start gap-2">
+                                  <div className={`w-6 h-6 rounded flex items-center justify-center mt-0.5 ${
+                                    isCompleted 
+                                      ? 'bg-green-100 text-green-600' 
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    <QuestionIcon className="h-3 w-3" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 line-clamp-2 mb-1">
+                                      {response.Question.questionText}
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      {isCompleted ? (
+                                        <CheckCircle className="h-3 w-3 text-green-600" />
+                                      ) : (
+                                        <Clock className="h-3 w-3 text-gray-400" />
+                                      )}
+                                      {response.Evidence.length > 0 && (
+                                        <Badge className="text-xs bg-gradient-to-r from-teal-500 to-cyan-500 text-white">
+                                          {response.Evidence.length} files
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">Question Responses</h3>
-                      <p className="text-sm text-gray-600">{questionnaire.responses.length} questions • {questionnaire.responses.filter(r => isResponseCompleted(r)).length} completed</p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+
+        {/* Right Detail View */}
+        <div className="col-span-8">
+          <Card className="border-0 shadow-lg bg-white h-[600px] overflow-hidden">
+            {selectedResponseData ? (
+              <>
+                {/* Question Header */}
+                <div className="bg-gray-50 border-b border-gray-200 p-6">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      isResponseCompleted(selectedResponseData)
+                        ? 'bg-gradient-to-br from-green-500 to-green-600 text-white'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {React.createElement(
+                        questionTypeIcons[selectedResponseData.Question.questionType as keyof typeof questionTypeIcons] || FileText,
+                        { className: "h-6 w-6" }
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        {selectedResponseData.Question.questionText}
+                      </h3>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <Badge className="bg-gray-100 text-gray-700 border">
+                          {selectedResponseData.Question.Section.title}
+                        </Badge>
+                        <Badge className={`${
+                          isResponseCompleted(selectedResponseData)
+                            ? 'bg-green-100 text-green-700 border-green-300'
+                            : 'bg-gray-100 text-gray-700 border-gray-300'
+                        }`}>
+                          {isResponseCompleted(selectedResponseData) ? 'Completed' : 'Pending'}
+                        </Badge>
+                        {selectedResponseData.Question.isRequired && (
+                          <Badge variant="destructive">Required</Badge>
+                        )}
+                        {selectedResponseData.Question.evidenceRequired && (
+                          <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+                            Evidence Required
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowEvidence(prev => ({ 
-                      ...prev, 
-                      [questionnaire.id]: !prev[questionnaire.id] 
-                    }))}
-                    className="text-sm"
-                  >
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    Evidence ({questionnaire.responses.reduce((acc, r) => acc + r.Evidence.length, 0)})
-                  </Button>
                 </div>
-              </div>
 
-              {/* Responses Content */}
-              <div className="p-4">
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {getResponsesBySection(questionnaire.responses).map(([sectionTitle, responses], sectionIdx) => (
-                    <div key={sectionTitle} className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 bg-gray-100 p-2 rounded-lg">
-                        <Layers className="w-4 h-4 text-gray-600" />
-                        {sectionTitle} ({responses.length} questions)
+                {/* Question Content */}
+                <div className="p-6 h-full overflow-y-auto">
+                  <div className="space-y-6">
+                    {/* Response Section */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5 text-teal-600" />
+                        Response
+                      </h4>
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <p className="text-gray-900">
+                          {formatResponseText(selectedResponseData)}
+                        </p>
+                        {selectedResponseData.submittedAt && (
+                          <div className="mt-3 text-sm text-gray-600">
+                            Submitted on {formatDate(selectedResponseData.submittedAt)}
+                          </div>
+                        )}
                       </div>
-                      
-                      <div className="grid gap-3">
-                        {responses.map((response, idx) => {
-                          const QuestionIcon = questionTypeIcons[response.Question.questionType as keyof typeof questionTypeIcons] || FileText
-                          const isCompleted = isResponseCompleted(response)
-                          
-                          return (
-                            <div 
-                              key={response.id}
-                              className="p-4 bg-gray-50 rounded-xl border border-gray-200"
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                                  isCompleted 
-                                    ? 'bg-gradient-to-br from-red-500 to-pink-500 text-white' 
-                                    : 'bg-gray-200 text-gray-600'
-                                }`}>
-                                  <QuestionIcon className="w-4 h-4" />
-                                </div>
-                                
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-gray-900 mb-2">
-                                    {response.Question.questionText}
-                                  </p>
-                                  <div className="text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-200">
-                                    {formatResponseText(response)}
+                    </div>
+
+                    {/* Evidence Section */}
+                    {selectedResponseData.Evidence.length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <Paperclip className="h-5 w-5 text-teal-600" />
+                          Evidence Files ({selectedResponseData.Evidence.length})
+                        </h4>
+                        <div className="space-y-3">
+                          {selectedResponseData.Evidence.map((evidence) => {
+                            const FileIcon = getFileIcon(evidence.fileType)
+                            
+                            return (
+                              <div 
+                                key={evidence.id}
+                                className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-200 shadow-sm"
+                              >
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-xl flex items-center justify-center">
+                                    <FileIcon className="h-5 w-5 text-white" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-medium text-gray-900 truncate">
+                                      {evidence.fileName}
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                      {evidence.fileType.toUpperCase()} • {formatFileSize(evidence.fileSize)} • 
+                                      Uploaded {formatDate(evidence.uploadedAt)}
+                                    </div>
                                   </div>
                                 </div>
                                 
                                 <div className="flex items-center gap-2">
-                                  {isCompleted ? (
-                                    <CheckCircle className="h-5 w-5 text-green-600" />
-                                  ) : (
-                                    <Clock className="h-5 w-5 text-gray-400" />
-                                  )}
-                                  {response.Evidence.length > 0 && (
-                                    <Badge className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white">
-                                      {response.Evidence.length} files
-                                    </Badge>
-                                  )}
+                                  <Button variant="outline" size="sm">
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    View
+                                  </Button>
+                                  <Button variant="outline" size="sm">
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download
+                                  </Button>
                                 </div>
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : (
+              // No Question Selected State
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a Question</h3>
+                  <p className="text-gray-600">
+                    Choose a question from the sidebar to view its details and responses
+                  </p>
                 </div>
               </div>
-
-              {/* Evidence Section */}
-              <AnimatePresence>
-                {showEvidence[questionnaire.id] && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <div className="border-t border-gray-200 bg-gray-50 p-4">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                          <Paperclip className="h-4 w-4 text-white" />
-                        </div>
-                        <h4 className="font-semibold text-gray-900">Evidence Files</h4>
-                      </div>
-                      
-                      {questionnaire.responses.filter(response => response.Evidence.length > 0).length > 0 ? (
-                        <div className="space-y-4 max-h-64 overflow-y-auto">
-                          {questionnaire.responses
-                            .filter(response => response.Evidence.length > 0)
-                            .map((response, idx) => (
-                              <div key={response.id} className="space-y-2">
-                                <div className="text-sm font-medium text-gray-700 bg-white p-2 rounded-lg">
-                                  {response.Question.questionText.substring(0, 80)}...
-                                </div>
-                                
-                                <div className="grid gap-2">
-                                  {response.Evidence.map((evidence, evidenceIdx) => {
-                                    const FileIcon = getFileIcon(evidence.fileType)
-                                    
-                                    return (
-                                      <div 
-                                        key={evidence.id}
-                                        className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
-                                      >
-                                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                                          <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
-                                            <FileIcon className="h-4 w-4 text-white" />
-                                          </div>
-                                          <div className="min-w-0 flex-1">
-                                            <div className="font-medium text-gray-900 text-sm truncate">
-                                              {evidence.fileName}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                              {evidence.fileType.toUpperCase()} • {formatFileSize(evidence.fileSize)}
-                                            </div>
-                                          </div>
-                                        </div>
-                                        
-                                        <div className="flex items-center gap-1">
-                                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                            <Eye className="h-4 w-4" />
-                                          </Button>
-                                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                            <Download className="h-4 w-4" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <FileX className="h-6 w-6 text-gray-400" />
-                          </div>
-                          <p className="text-sm text-gray-500">No evidence files uploaded yet</p>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </Card>
-          </motion.div>
-        ))}
+            )}
+          </Card>
+        </div>
       </div>
     </div>
   )
