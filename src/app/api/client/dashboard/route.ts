@@ -454,23 +454,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// API Route Handlers (for internal use)
-export const dashboardRoutes = {
-  // GET /api/client/dashboard?clientId=xxx
-  getMetrics: async (clientId: string) => getDashboardMetrics(clientId),
+// // API Route Handlers (for internal use)
+// export const dashboardRoutes = {
+//   // GET /api/client/dashboard?clientId=xxx
+//   getMetrics: async (clientId: string) => getDashboardMetrics(clientId),
   
-  // GET /api/client/dashboard?clientId=xxx&action=request-status
-  getRequestStatus: async (clientId: string) => getThirdPartyRequestStatus(clientId),
+//   // GET /api/client/dashboard?clientId=xxx&action=request-status
+//   getRequestStatus: async (clientId: string) => getThirdPartyRequestStatus(clientId),
   
-  // GET /api/client/dashboard?clientId=xxx&action=vendor-criticality
-  getVendorCriticality: async (clientId: string) => getVendorCriticalityOverview(clientId),
+//   // GET /api/client/dashboard?clientId=xxx&action=vendor-criticality
+//   getVendorCriticality: async (clientId: string) => getVendorCriticalityOverview(clientId),
   
-  // GET /api/client/dashboard?clientId=xxx&action=assessment-due-dates
-  getAssessmentDueDates: async (clientId: string) => getAssessmentStatusByDueDate(clientId),
+//   // GET /api/client/dashboard?clientId=xxx&action=assessment-due-dates
+//   getAssessmentDueDates: async (clientId: string) => getAssessmentStatusByDueDate(clientId),
   
-  // GET /api/client/dashboard?clientId=xxx&action=critical-vendors
-  getCriticalVendors: async (clientId: string, filters?: any) => getTopCriticalVendors(clientId, 10, filters),
+//   // GET /api/client/dashboard?clientId=xxx&action=critical-vendors
+//   getCriticalVendors: async (clientId: string, filters?: any) => getTopCriticalVendors(clientId, 10, filters),
   
-  // GET /api/client/dashboard?clientId=xxx&action=additional-metrics
-  getAdditionalMetrics: async (clientId: string) => getAdditionalMetrics(clientId)
-};
+//   // GET /api/client/dashboard?clientId=xxx&action=additional-metrics
+//   getAdditionalMetrics: async (clientId: string) => getAdditionalMetrics(clientId)
+// };
