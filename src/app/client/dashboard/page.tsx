@@ -56,7 +56,7 @@ export interface User {
 }
 
 // Fixed getCurrentUser function with proper hydration handling
-export const getCurrentUser = (): User | null => {
+const getCurrentUser = (): User | null => {
   if (typeof window === 'undefined') return null
   
   try {
