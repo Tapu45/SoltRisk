@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { API_ROUTES } from '@/lib/api'
-import { ArrowLeft,Shield, CheckCircle, XCircle,AlertTriangle, User, Calendar,Building,Mail,FileText,Target,Clock,TrendingUp,Award,MessageSquare,Eye,X,ThumbsUp,ThumbsDown,Send,ChevronDown,Activity,BarChart3,Star,} from 'lucide-react'
+import { ArrowLeft,Shield, CheckCircle, XCircle,AlertTriangle, User, Calendar,Building,Mail,FileText,Target,Clock,TrendingUp,Award,MessageSquare,Eye,X,ThumbsUp,ThumbsDown,Send,ChevronDown,Activity,BarChart3,Star, Settings,} from 'lucide-react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -183,11 +183,14 @@ export default function AssessmentResultsPage() {
 
   const handleSendQuestionnaire = () => {
     if (assessmentData?.submission?.approvalStatus !== 'APPROVED') {
-      toast.error('Assessment must be approved before sending questionnaire')
-      return
+        toast.error('Assessment must be approved before sending questionnaire')
+        return
     }
-    sendQuestionnaireMutation.mutate()
-  }
+    
+    // Open questionnaire preview in new tab
+    const previewUrl = `/client/questionnaire-preview/${submissionId}`
+    window.open(previewUrl, '_blank', 'noopener,noreferrer')
+}
 
   const cancelApproval = () => {
     setShowApprovalSection(false)
@@ -377,31 +380,22 @@ export default function AssessmentResultsPage() {
                   </div>
                 </div>
                 {assessmentData.submission.approvalStatus === 'APPROVED' && (
-                    <motion.div
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                    >
-                      <Button
-                        onClick={handleSendQuestionnaire}
-                        disabled={sendQuestionnaireMutation.isPending}
-                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xl text-white"
-                        size="lg"
-                      >
-                        {sendQuestionnaireMutation.isPending ? (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"
-                          />
-                        ) : (
-                          <Send className="w-5 h-5 mr-2" />
-                        )}
-                        Send Questionnaire
-                      </Button>
-                    </motion.div>
-                  )}
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+    >
+      <Button
+        onClick={handleSendQuestionnaire}
+        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-xl text-white"
+        size="lg"
+      >
+        <Settings className="w-5 h-5 mr-2" />
+        Setup & Send Questionnaire
+      </Button>
+    </motion.div>
+  )}
 
                 {/* Quick Action Buttons */}
                 {assessmentData.submission.isReviewed && 
@@ -919,104 +913,149 @@ export default function AssessmentResultsPage() {
             </Card>
           </motion.div>
 
-          {/* Assessment Sections */}
-          <motion.div
+        <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
-                <FileText className="w-5 h-5 text-white" />
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <FileText className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-3xl font-bold text-gray-900">Assessment Responses</h2>
+                  <p className="text-gray-600 mt-1">View detailed responses for all sections</p>
+                </div>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">Assessment Responses</h2>
-              <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200">
-                {assessmentData.sections.length} Sections
+              <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 px-4 py-2 text-sm font-semibold">
+                {assessmentData.sections.length} Sections Completed
               </Badge>
             </div>
 
-            {assessmentData.sections.map((section, index) => (
-              <motion.div
-                key={section.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9 + index * 0.1 }}
-              >
-                <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300">
-                  <CardHeader 
-                    className="cursor-pointer"
-                    onClick={() => toggleSection(section.id)}
+            {/* Assessment Response Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9 }}
+            >
+              <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300">
+               
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                    <motion.div 
+                      className="text-center"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 1.0 }}
+                    >
+                      <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <div className="text-3xl font-bold text-white">
+                          {assessmentData.sections.length}
+                        </div>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 mb-1">Sections</h4>
+                      <p className="text-sm text-gray-600">All sections completed</p>
+                    </motion.div>
+                    
+                    <motion.div 
+                      className="text-center"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 1.1 }}
+                    >
+                      <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <div className="text-3xl font-bold text-white">
+                          {assessmentData.sections.reduce((total, section) => total + section.answers.length, 0)}
+                        </div>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 mb-1">Questions</h4>
+                      <p className="text-sm text-gray-600">Total questions answered</p>
+                    </motion.div>
+                    
+                    <motion.div 
+                      className="text-center"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 1.2 }}
+                    >
+                      <div className="w-20 h-20 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <div className="text-3xl font-bold text-white">
+                          {assessmentData.sections.reduce((total, section) => 
+                            total + section.answers.reduce((sum, answer) => sum + answer.points, 0), 0
+                          )}
+                        </div>
+                      </div>
+                      <h4 className="font-semibold text-gray-900 mb-1">Points Earned</h4>
+                      <p className="text-sm text-gray-600">Total assessment score</p>
+                    </motion.div>
+                  </div>
+                  
+                  {/* Action Section */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.3 }}
+                    className="p-6 bg-gradient-to-r from-indigo-50 via-purple-50 to-teal-50 rounded-xl border border-indigo-200 shadow-inner"
                   >
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl flex items-center justify-center">
-                          <span className="text-white font-bold">{section.order}</span>
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                          <div className="text-lg">Section {section.order}: {section.title}</div>
-                          <div className="text-sm text-gray-600 font-normal">
-                            {section.answers.length} responses
-                          </div>
+                          <h4 className="text-lg font-bold text-indigo-900">View Detailed Responses</h4>
+                          <p className="text-sm text-indigo-700">Access complete answers and section-wise breakdown</p>
                         </div>
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                          Complete
-                        </Badge>
-                      </CardTitle>
+                      </div>
+                      
                       <motion.div
-                        animate={{ rotate: expandedSections.includes(section.id) ? 180 : 0 }}
-                        transition={{ duration: 0.2 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                       >
-                        <ChevronDown className="h-5 w-5 text-gray-400" />
+                        <Button
+                          onClick={() => {
+                            const url = `/client/result/${submissionId}/responses`;
+                            window.open(url, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-xl px-8 py-3"
+                          size="lg"
+                        >
+                          <Eye className="w-5 h-5 mr-2" />
+                          View All Responses
+                        </Button>
                       </motion.div>
                     </div>
-                  </CardHeader>
-                  
-                  <AnimatePresence>
-                    {expandedSections.includes(section.id) && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden"
-                      >
-                        <CardContent className="pt-0">
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {section.answers.map((answer, answerIndex) => (
-                              <motion.div 
-                                key={answer.questionId}
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: answerIndex * 0.05 }}
-                                className="p-5 bg-gradient-to-r from-gray-50 to-blue-50/30 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors duration-200"
-                              >
-                                <div className="flex justify-between items-start mb-3">
-                                  <h4 className="font-semibold text-gray-900 text-sm leading-tight">
-                                    {answer.questionText}
-                                    {answer.isRequired && <span className="text-red-500 ml-1">*</span>}
-                                  </h4>
-                                  {answer.points > 0 && (
-                                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
-                                      <Star className="w-3 h-3" />
-                                      {answer.points} pts
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="text-sm text-gray-700 bg-white p-3 rounded-md border border-gray-200 font-medium">
-                                  {renderAnswerValue(answer)}
-                                </div>
-                              </motion.div>
-                            ))}
+                    
+                    {/* Quick Stats */}
+                    <div className="mt-6 pt-6 border-t border-indigo-200">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {assessmentData.sections.slice(0, 4).map((section, index) => (
+                          <div key={section.id} className="text-center">
+                            <div className="text-lg font-bold text-indigo-800">
+                              {section.answers.length}
+                            </div>
+                            <div className="text-xs text-indigo-600 truncate">
+                              {section.title}
+                            </div>
                           </div>
-                        </CardContent>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </Card>
-              </motion.div>
-            ))}
+                        ))}
+                      </div>
+                      {assessmentData.sections.length > 4 && (
+                        <div className="text-center mt-4">
+                          <Badge variant="outline" className="bg-indigo-100 text-indigo-700 border-indigo-200">
+                            +{assessmentData.sections.length - 4} more sections
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
           </motion.div>
+
 
           {/* Approval/Rejection Comments */}
           {(assessmentData.submission.approvalComments || assessmentData.submission.rejectionReason) && (

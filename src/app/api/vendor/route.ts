@@ -633,6 +633,260 @@ export async function POST(request: NextRequest) {
             })
         }
 
+        if (action === 'add-question') {
+            const {
+                templateId,
+                sectionId,
+                newSectionData,
+                questionData
+            } = await request.json()
+
+            if (!templateId || !questionData) {
+                return NextResponse.json({
+                    error: 'Template ID and question data are required'
+                }, { status: 400 })
+            }
+
+            let targetSectionId = sectionId
+
+            // If creating a new section
+            if (!sectionId && newSectionData) {
+                // Get the highest order number for sections in this template
+                const maxOrder = await prisma.questionnaireSection.aggregate({
+                    where: { templateId },
+                    _max: { order: true }
+                })
+
+                const newSection = await prisma.questionnaireSection.create({
+                    data: {
+                        templateId,
+                        title: newSectionData.title,
+                        description: newSectionData.description || null,
+                        order: (maxOrder._max.order || 0) + 1,
+                        weightage: newSectionData.weightage || 1.0,
+                        isRequired: newSectionData.isRequired !== false
+                    }
+                })
+
+                targetSectionId = newSection.id
+                console.log(`✅ New section created: ${newSection.title}`)
+            }
+
+            if (!targetSectionId) {
+                return NextResponse.json({
+                    error: 'Section ID is required or new section data must be provided'
+                }, { status: 400 })
+            }
+
+            // Get the highest order number for questions in this section
+            const maxQuestionOrder = await prisma.questionnaireQuestion.aggregate({
+                where: { sectionId: targetSectionId },
+                _max: { order: true }
+            })
+
+            // Create the new question
+            const newQuestion = await prisma.questionnaireQuestion.create({
+                data: {
+                    templateId,
+                    sectionId: targetSectionId,
+                    questionText: questionData.questionText,
+                    description: questionData.description || null,
+                    questionType: questionData.questionType,
+                    options: questionData.options || null,
+                    isRequired: questionData.isRequired !== false,
+                    evidenceRequired: questionData.evidenceRequired || false,
+                    order: (maxQuestionOrder._max.order || 0) + 1,
+                    category: questionData.category || null
+                }
+            })
+
+            // Update template's total question count
+            const totalQuestions = await prisma.questionnaireQuestion.count({
+                where: { templateId }
+            })
+
+            await prisma.questionnaireTemplate.update({
+                where: { id: templateId },
+                data: { totalQuestions }
+            })
+
+            console.log(`✅ Question added: ${newQuestion.questionText}`)
+
+            return NextResponse.json({
+                success: true,
+                message: 'Question added successfully',
+                question: {
+                    id: newQuestion.id,
+                    questionText: newQuestion.questionText,
+                    questionType: newQuestion.questionType,
+                    sectionId: targetSectionId,
+                    order: newQuestion.order
+                },
+                sectionCreated: sectionId ? false : true,
+                updatedTotalQuestions: totalQuestions
+            })
+        }
+
+        // CREATE NEW SECTION
+        if (action === 'create-section') {
+            const { templateId, sectionData } = await request.json()
+
+            if (!templateId || !sectionData || !sectionData.title) {
+                return NextResponse.json({
+                    error: 'Template ID and section title are required'
+                }, { status: 400 })
+            }
+
+            // Get the highest order number for sections in this template
+            const maxOrder = await prisma.questionnaireSection.aggregate({
+                where: { templateId },
+                _max: { order: true }
+            })
+
+            const newSection = await prisma.questionnaireSection.create({
+                data: {
+                    templateId,
+                    title: sectionData.title,
+                    description: sectionData.description || null,
+                    order: (maxOrder._max.order || 0) + 1,
+                    weightage: sectionData.weightage || 1.0,
+                    isRequired: sectionData.isRequired !== false
+                }
+            })
+
+            console.log(`✅ Section created: ${newSection.title}`)
+
+            return NextResponse.json({
+                success: true,
+                message: 'Section created successfully',
+                section: {
+                    id: newSection.id,
+                    title: newSection.title,
+                    description: newSection.description,
+                    order: newSection.order,
+                    weightage: newSection.weightage
+                }
+            })
+        }
+
+        // UPDATE QUESTION
+        if (action === 'update-question') {
+            const { questionId, questionData } = await request.json()
+
+            if (!questionId || !questionData) {
+                return NextResponse.json({
+                    error: 'Question ID and question data are required'
+                }, { status: 400 })
+            }
+
+            const updatedQuestion = await prisma.questionnaireQuestion.update({
+                where: { id: questionId },
+                data: {
+                    questionText: questionData.questionText,
+                    description: questionData.description,
+                    questionType: questionData.questionType,
+                    options: questionData.options,
+                    isRequired: questionData.isRequired,
+                    evidenceRequired: questionData.evidenceRequired,
+                    category: questionData.category
+                }
+            })
+
+            console.log(`✅ Question updated: ${updatedQuestion.questionText}`)
+
+            return NextResponse.json({
+                success: true,
+                message: 'Question updated successfully',
+                question: updatedQuestion
+            })
+        }
+
+        // UPDATE SECTION
+        if (action === 'update-section') {
+            const { sectionId, sectionData } = await request.json()
+
+            if (!sectionId || !sectionData) {
+                return NextResponse.json({
+                    error: 'Section ID and section data are required'
+                }, { status: 400 })
+            }
+
+            const updatedSection = await prisma.questionnaireSection.update({
+                where: { id: sectionId },
+                data: {
+                    title: sectionData.title,
+                    description: sectionData.description,
+                    weightage: sectionData.weightage,
+                    isRequired: sectionData.isRequired
+                }
+            })
+
+            console.log(`✅ Section updated: ${updatedSection.title}`)
+
+            return NextResponse.json({
+                success: true,
+                message: 'Section updated successfully',
+                section: updatedSection
+            })
+        }
+
+        // REORDER QUESTIONS
+        if (action === 'reorder-questions') {
+            const { sectionId, questionOrders } = await request.json()
+
+            if (!sectionId || !Array.isArray(questionOrders)) {
+                return NextResponse.json({
+                    error: 'Section ID and question orders array are required'
+                }, { status: 400 })
+            }
+
+            // Update question orders in batch
+            const updatePromises = questionOrders.map((item: { questionId: string, order: number }) => 
+                prisma.questionnaireQuestion.update({
+                    where: { id: item.questionId },
+                    data: { order: item.order }
+                })
+            )
+
+            await Promise.all(updatePromises)
+
+            console.log(`✅ Questions reordered in section: ${sectionId}`)
+
+            return NextResponse.json({
+                success: true,
+                message: 'Questions reordered successfully'
+            })
+        }
+
+        // REORDER SECTIONS
+        if (action === 'reorder-sections') {
+            const { templateId, sectionOrders } = await request.json()
+
+            if (!templateId || !Array.isArray(sectionOrders)) {
+                return NextResponse.json({
+                    error: 'Template ID and section orders array are required'
+                }, { status: 400 })
+            }
+
+            // Update section orders in batch
+            const updatePromises = sectionOrders.map((item: { sectionId: string, order: number }) => 
+                prisma.questionnaireSection.update({
+                    where: { id: item.sectionId },
+                    data: { order: item.order }
+                })
+            )
+
+            await Promise.all(updatePromises)
+
+            console.log(`✅ Sections reordered in template: ${templateId}`)
+
+            return NextResponse.json({
+                success: true,
+                message: 'Sections reordered successfully'
+            })
+        }
+
+
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
 
     } catch (error) {
@@ -655,6 +909,8 @@ export async function GET(request: NextRequest) {
         const userId = searchParams.get('userId')
         const questionnaireId = searchParams.get('questionnaireId')
         const responseId = searchParams.get('responseId')
+        const templateId = searchParams.get('templateId')
+        const sectionId = searchParams.get('sectionId')
 
         // GET VENDOR PROFILE
         if (action === 'profile') {
@@ -1064,6 +1320,122 @@ export async function GET(request: NextRequest) {
             })
         }
 
+         if (action === 'template-structure' && templateId) {
+            const template = await prisma.questionnaireTemplate.findUnique({
+                where: { id: templateId },
+                include: {
+                    Sections: {
+                        include: {
+                            Questions: {
+                                orderBy: { order: 'asc' }
+                            }
+                        },
+                        orderBy: { order: 'asc' }
+                    }
+                }
+            })
+
+            if (!template) {
+                return NextResponse.json({
+                    error: 'Template not found'
+                }, { status: 404 })
+            }
+
+            return NextResponse.json({
+                template: {
+                    id: template.id,
+                    name: template.name,
+                    description: template.description,
+                    riskLevel: template.riskLevel,
+                    templateType: template.templateType,
+                    version: template.version,
+                    isActive: template.isActive,
+                    totalQuestions: template.totalQuestions,
+                    estimatedTime: template.estimatedTime,
+                    sections: template.Sections.map(section => ({
+                        id: section.id,
+                        title: section.title,
+                        description: section.description,
+                        order: section.order,
+                        weightage: section.weightage,
+                        isRequired: section.isRequired,
+                        questionCount: section.Questions.length,
+                        questions: section.Questions.map(question => ({
+                            id: question.id,
+                            questionText: question.questionText,
+                            description: question.description,
+                            questionType: question.questionType,
+                            options: question.options,
+                            isRequired: question.isRequired,
+                            evidenceRequired: question.evidenceRequired,
+                            order: question.order,
+                            category: question.category
+                        }))
+                    }))
+                }
+            })
+        }
+
+        // GET ALL TEMPLATES (for selection)
+        if (action === 'templates-list') {
+            const templates = await prisma.questionnaireTemplate.findMany({
+                include: {
+                    _count: {
+                        select: {
+                            Sections: true,
+                            Questions: true,
+                            Assignments: true
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            })
+
+            return NextResponse.json({
+                templates: templates.map(template => ({
+                    id: template.id,
+                    name: template.name,
+                    description: template.description,
+                    riskLevel: template.riskLevel,
+                    templateType: template.templateType,
+                    version: template.version,
+                    isActive: template.isActive,
+                    totalQuestions: template.totalQuestions,
+                    estimatedTime: template.estimatedTime,
+                    sectionCount: template._count.Sections,
+                    questionCount: template._count.Questions,
+                    assignmentCount: template._count.Assignments,
+                    createdAt: template.createdAt,
+                    updatedAt: template.updatedAt
+                }))
+            })
+        }
+
+        // GET SECTIONS FOR A TEMPLATE (for question assignment)
+        if (action === 'template-sections' && templateId) {
+            const sections = await prisma.questionnaireSection.findMany({
+                where: { templateId },
+                include: {
+                    _count: {
+                        select: { Questions: true }
+                    }
+                },
+                orderBy: { order: 'asc' }
+            })
+
+            return NextResponse.json({
+                sections: sections.map(section => ({
+                    id: section.id,
+                    title: section.title,
+                    description: section.description,
+                    order: section.order,
+                    weightage: section.weightage,
+                    isRequired: section.isRequired,
+                    questionCount: section._count.Questions
+                }))
+            })
+        }
+
         return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 })
 
     } catch (error) {
@@ -1201,6 +1573,142 @@ export async function PUT(request: NextRequest) {
 
     } catch (error) {
         console.error('Error in PUT /api/vendor:', error)
+        return NextResponse.json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 500 })
+    }
+}
+
+// ============================================================================
+// DELETE /api/vendor - Delete Questions & Sections
+// ============================================================================
+export async function DELETE(request: NextRequest) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const action = searchParams.get('action')
+
+        // DELETE QUESTION
+        if (action === 'delete-question') {
+            const { questionId, templateId } = await request.json()
+
+            if (!questionId || !templateId) {
+                return NextResponse.json({
+                    error: 'Question ID and Template ID are required'
+                }, { status: 400 })
+            }
+
+            // Get question details before deletion
+            const question = await prisma.questionnaireQuestion.findUnique({
+                where: { id: questionId },
+                include: { Section: true }
+            })
+
+            if (!question) {
+                return NextResponse.json({
+                    error: 'Question not found'
+                }, { status: 404 })
+            }
+
+            const sectionId = question.sectionId
+
+            // Delete the question
+            await prisma.questionnaireQuestion.delete({
+                where: { id: questionId }
+            })
+
+            // Check if section has any remaining questions
+            const remainingQuestions = await prisma.questionnaireQuestion.count({
+                where: { sectionId: sectionId }
+            })
+
+            // If no questions left in section, delete the section
+            if (remainingQuestions === 0) {
+                await prisma.questionnaireSection.delete({
+                    where: { id: sectionId }
+                })
+            }
+
+            // Update template's total question count
+            const totalQuestions = await prisma.questionnaireQuestion.count({
+                where: { templateId: templateId }
+            })
+
+            await prisma.questionnaireTemplate.update({
+                where: { id: templateId },
+                data: { totalQuestions }
+            })
+
+            console.log(`✅ Question deleted: ${questionId}`)
+            if (remainingQuestions === 0) {
+                console.log(`✅ Section auto-deleted: ${question.Section.title}`)
+            }
+
+            return NextResponse.json({
+                success: true,
+                message: 'Question deleted successfully',
+                sectionDeleted: remainingQuestions === 0,
+                deletedSection: remainingQuestions === 0 ? question.Section.title : null,
+                updatedTotalQuestions: totalQuestions
+            })
+        }
+
+        // DELETE SECTION
+        if (action === 'delete-section') {
+            const { sectionId, templateId } = await request.json()
+
+            if (!sectionId || !templateId) {
+                return NextResponse.json({
+                    error: 'Section ID and Template ID are required'
+                }, { status: 400 })
+            }
+
+            // Get section details
+            const section = await prisma.questionnaireSection.findUnique({
+                where: { id: sectionId },
+                include: { Questions: true }
+            })
+
+            if (!section) {
+                return NextResponse.json({
+                    error: 'Section not found'
+                }, { status: 404 })
+            }
+
+            // Delete all questions in the section first
+            await prisma.questionnaireQuestion.deleteMany({
+                where: { sectionId: sectionId }
+            })
+
+            // Delete the section
+            await prisma.questionnaireSection.delete({
+                where: { id: sectionId }
+            })
+
+            // Update template's total question count
+            const totalQuestions = await prisma.questionnaireQuestion.count({
+                where: { templateId: templateId }
+            })
+
+            await prisma.questionnaireTemplate.update({
+                where: { id: templateId },
+                data: { totalQuestions }
+            })
+
+            console.log(`✅ Section deleted: ${section.title} (${section.Questions.length} questions)`)
+
+            return NextResponse.json({
+                success: true,
+                message: `Section "${section.title}" and ${section.Questions.length} questions deleted successfully`,
+                deletedQuestions: section.Questions.length,
+                updatedTotalQuestions: totalQuestions
+            })
+        }
+
+        return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 })
+
+    } catch (error) {
+        console.error('Error in DELETE /api/vendor:', error)
         return NextResponse.json({
             error: 'Internal server error',
             details: error instanceof Error ? error.message : 'Unknown error'

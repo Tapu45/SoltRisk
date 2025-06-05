@@ -966,22 +966,39 @@ export async function PUT(request: NextRequest) {
 
 // Calculate points for an individual answer
 function calculateAnswerPoints(answer: any): number {
-    if (!answer.questionOptions?.choices) return 0
-
-    const { value, questionOptions } = answer
-
-    // Handle different answer types
-    if (Array.isArray(value)) {
-        // Multiple choice - sum all selected option scores
-        return value.reduce((total: number, selectedValue: string) => {
-            const option = questionOptions.choices.find((choice: any) => choice.value === selectedValue)
-            return total + (option?.riskScore || option?.controlScore || 0)
-        }, 0)
-    } else {
-        // Single choice or boolean
-        const option = questionOptions.choices.find((choice: any) => choice.value === value)
-        return option?.riskScore || option?.controlScore || 0
+    // Handle direct answer format (when answer has questionOptions)
+    if (answer.questionOptions?.choices) {
+        const { value, questionOptions } = answer
+        
+        if (Array.isArray(value)) {
+            return value.reduce((total: number, selectedValue: string) => {
+                const option = questionOptions.choices.find((choice: any) => choice.value === selectedValue)
+                return total + (option?.riskScore || option?.controlScore || 0)
+            }, 0)
+        } else {
+            const option = questionOptions.choices.find((choice: any) => choice.value === value)
+            return option?.riskScore || option?.controlScore || 0
+        }
     }
+
+    // Handle stored answer format (when we need to look up question options)
+    if (answer.Question?.options?.choices) {
+        const value = answer.answerValue
+        const choices = answer.Question.options.choices
+        
+        if (Array.isArray(value)) {
+            return value.reduce((total: number, selectedValue: string) => {
+                const option = choices.find((choice: any) => choice.value === selectedValue)
+                return total + (option?.riskScore || option?.controlScore || 0)
+            }, 0)
+        } else {
+            const option = choices.find((choice: any) => choice.value === value)
+            return option?.riskScore || option?.controlScore || 0
+        }
+    }
+
+    // If no options available, return the stored points (fallback)
+    return answer.points || 0
 }
 
 // Calculate overall risk assessment
@@ -1008,15 +1025,34 @@ async function calculateRiskAssessment(submission: any) {
         answers.forEach((answer: any) => {
             const question = answer.Question
             const weightage = question.weightage || 1.0
+            
+            // Recalculate points based on actual question options
+            let actualPoints = 0
+            if (question.options?.choices) {
+                const value = answer.answerValue
+                const choices = question.options.choices
+                
+                if (Array.isArray(value)) {
+                    actualPoints = value.reduce((total: number, selectedValue: string) => {
+                        const option = choices.find((choice: any) => choice.value === selectedValue)
+                        return total + (option?.riskScore || option?.controlScore || 0)
+                    }, 0)
+                } else {
+                    const option = choices.find((choice: any) => choice.value === value)
+                    actualPoints = option?.riskScore || option?.controlScore || 0
+                }
+            } else {
+                actualPoints = answer.points || 0
+            }
 
             // Add weighted points
-            sectionScore += (answer.points * weightage)
+            sectionScore += (actualPoints * weightage)
             sectionMaxScore += (question.maxPoints * weightage)
         })
 
         sectionScores[sectionId] = {
-            score: sectionScore,
-            maxScore: sectionMaxScore,
+            score: Math.round(sectionScore * 100) / 100,
+            maxScore: Math.round(sectionMaxScore * 100) / 100,
             percentage: sectionMaxScore > 0 ? (sectionScore / sectionMaxScore) * 100 : 0
         }
 
@@ -1041,8 +1077,8 @@ async function calculateRiskAssessment(submission: any) {
     const recommendations = generateRecommendations(riskLevel, sectionScores, riskPercentage)
 
     return {
-        totalScore: Math.round(totalScore),
-        maxPossibleScore: Math.round(maxPossibleScore),
+        totalScore: Math.round(totalScore * 100) / 100,
+        maxPossibleScore: Math.round(maxPossibleScore * 100) / 100,
         riskPercentage: Math.round(riskPercentage * 100) / 100,
         riskLevel,
         sectionScores,

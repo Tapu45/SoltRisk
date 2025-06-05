@@ -375,20 +375,7 @@ export default function Sidebar() {
           </div>
         </nav>
 
-        {/* Notifications (when expanded) */}
-        {expanded && (
-          <div className="px-4 py-3">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
-              <div className="flex items-center gap-3">
-                <Bell className="h-4 w-4 text-white/80" />
-                <div>
-                  <p className="text-white/90 text-xs">Notifications</p>
-                  <p className="text-white text-sm font-medium">3 new alerts</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+      
 
         {/* User Profile */}
         <div className="px-4 py-4 border-t border-white/20 bg-white/5 backdrop-blur-sm">
