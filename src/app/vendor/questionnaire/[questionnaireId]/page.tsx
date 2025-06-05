@@ -808,15 +808,16 @@ export default function QuestionnairePage() {
                         transition={{ delay: index * 0.1 }}
                       >
                         <QuestionRenderer
-                          question={question}
-                          response={responses[question.id]}
-                          validationError={validationErrors.find(
-                            (e) => e.questionId === question.id
-                          )}
-                          onResponseChange={updateResponse}
-                          onFileUpload={uploadFile}
-                          savingQuestionId={savingQuestionId} // Add this line
-                        />
+  question={question}
+  response={responses[question.id]}
+  validationError={validationErrors.find(
+    (e) => e.questionId === question.id
+  )}
+  onResponseChange={updateResponse}
+  onFileUpload={uploadFile}
+  savingQuestionId={savingQuestionId}
+  questionnaireId={questionnaireId} // Add this missing prop
+/>
                       </motion.div>
                     ))}
                   </div>
