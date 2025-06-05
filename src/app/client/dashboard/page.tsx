@@ -47,7 +47,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import FloatingParticles from '@/components/animation/floatingparticles'
 
-export interface User {
+ interface User {
   id: string
   email: string
   name: string

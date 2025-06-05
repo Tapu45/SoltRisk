@@ -40,6 +40,62 @@ export const sendOrganizationWelcomeEmail = async (
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Welcome to Our Platform</title>
+      <script>
+        function copyToClipboard(text) {
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(function() {
+              const button = document.getElementById('copyBtn');
+              const originalText = button.innerHTML;
+              button.innerHTML = '✅ Copied!';
+              button.style.background = '#10b981';
+              setTimeout(function() {
+                button.innerHTML = originalText;
+                button.style.background = '#3b82f6';
+              }, 2000);
+            }).catch(function() {
+              fallbackCopyTextToClipboard(text);
+            });
+          } else {
+            fallbackCopyTextToClipboard(text);
+          }
+        }
+
+        function fallbackCopyTextToClipboard(text) {
+          const textArea = document.createElement("textarea");
+          textArea.value = text;
+          textArea.style.top = "0";
+          textArea.style.left = "0";
+          textArea.style.position = "fixed";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          
+          try {
+            const successful = document.execCommand('copy');
+            const button = document.getElementById('copyBtn');
+            if (successful) {
+              const originalText = button.innerHTML;
+              button.innerHTML = '✅ Copied!';
+              button.style.background = '#10b981';
+              setTimeout(function() {
+                button.innerHTML = originalText;
+                button.style.background = '#3b82f6';
+              }, 2000);
+            } else {
+              button.innerHTML = '❌ Failed';
+              button.style.background = '#ef4444';
+              setTimeout(function() {
+                button.innerHTML = '📋 Copy';
+                button.style.background = '#3b82f6';
+              }, 2000);
+            }
+          } catch (err) {
+            console.error('Fallback: Oops, unable to copy', err);
+          }
+          
+          document.body.removeChild(textArea);
+        }
+      </script>
     </head>
     <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
       <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
@@ -84,9 +140,23 @@ export const sendOrganizationWelcomeEmail = async (
                 <label style="display: block; color: #718096; font-size: 14px; font-weight: 500; margin-bottom: 5px;">
                   Temporary Password:
                 </label>
-                <span style="color: #2d3748; font-size: 16px; font-weight: 600; background-color: #fed7d7; padding: 8px 12px; border-radius: 6px; display: inline-block; font-family: 'Courier New', monospace;">
-                  ${temporaryPassword}
-                </span>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <span style="color: #2d3748; font-size: 16px; font-weight: 600; background-color: #fed7d7; padding: 8px 12px; border-radius: 6px; display: inline-block; font-family: 'Courier New', monospace; user-select: all;">
+                    ${temporaryPassword}
+                  </span>
+                  <button 
+                    id="copyBtn"
+                    onclick="copyToClipboard('${temporaryPassword}')" 
+                    style="background: #3b82f6; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);"
+                    onmouseover="this.style.background='#2563eb'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 8px rgba(59, 130, 246, 0.3)'"
+                    onmouseout="this.style.background='#3b82f6'; this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(59, 130, 246, 0.2)'"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
+                <p style="color: #6b7280; font-size: 12px; margin: 8px 0 0 0; font-style: italic;">
+                  💡 Click the copy button above to copy the password to your clipboard
+                </p>
               </div>
             </div>
           </div>
@@ -111,7 +181,7 @@ export const sendOrganizationWelcomeEmail = async (
             </h3>
             <ol style="color: #4a5568; text-align: left; font-size: 15px; line-height: 1.6; padding-left: 20px;">
               <li style="margin-bottom: 8px;">Click the login button below to access the platform</li>
-              <li style="margin-bottom: 8px;">Enter your email and temporary password</li>
+              <li style="margin-bottom: 8px;">Enter your email and temporary password (use copy button for convenience)</li>
               <li style="margin-bottom: 8px;">You'll be prompted to create a new secure password</li>
               <li style="margin-bottom: 8px;">Complete your organization profile setup</li>
             </ol>
